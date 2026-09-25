@@ -7,14 +7,16 @@ import { cn } from "@/lib/utils";
 const TABS = [
   { href: "/pedidos", label: "Todos" },
   { href: "/pedidos/rotas", label: "Por rota (Rui Barbosa)" },
+  { href: "/pedidos/respostas", label: "Respostas das lojas", adminOnly: true },
 ];
 
-export function PedidosTabs() {
+export function PedidosTabs({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
+  const tabs = TABS.filter((tab) => !tab.adminOnly || isAdmin);
 
   return (
     <div className="flex gap-1 border-b border-neutral-200">
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const active = pathname === tab.href;
         return (
           <Link

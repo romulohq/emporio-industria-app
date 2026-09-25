@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/get-session";
 import { Button } from "@/components/ui/button";
 import { OrderTable } from "@/components/orders/order-table";
 import { PedidosTabs } from "@/components/orders/pedidos-tabs";
 import type { Product, ProductionOrder, Sector } from "@/lib/types/database.types";
 
 export default async function PedidosPage() {
+  const { profile } = await requireUser();
   const supabase = await createClient();
 
   const [{ data: orders }, { data: products }, { data: sectors }] = await Promise.all([
@@ -26,7 +28,7 @@ export default async function PedidosPage() {
         </Link>
       </div>
 
-      <PedidosTabs />
+      <PedidosTabs isAdmin={profile.is_admin} />
 
       <OrderTable
         orders={(orders ?? []) as ProductionOrder[]}

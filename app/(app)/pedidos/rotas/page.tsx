@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/get-session";
 import { StatusBadge } from "@/components/orders/status-badge";
 import { PedidosTabs } from "@/components/orders/pedidos-tabs";
 import { updateOrderStatus } from "@/app/(app)/pedidos/actions";
@@ -13,6 +14,7 @@ import type {
 } from "@/lib/types/database.types";
 
 export default async function OrdensPorRotaPage() {
+  const { profile } = await requireUser();
   const supabase = await createClient();
 
   const [{ data: orders }, { data: routes }, { data: sectors }, { data: products }] = await Promise.all([
@@ -71,7 +73,7 @@ export default async function OrdensPorRotaPage() {
         </p>
       </div>
 
-      <PedidosTabs />
+      <PedidosTabs isAdmin={profile.is_admin} />
 
       {routeEntries.length === 0 && (
         <p className="text-sm text-neutral-500">Nenhuma ordem automática em aberto no momento.</p>

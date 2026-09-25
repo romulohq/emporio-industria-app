@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import type { FormState } from "@/app/(app)/admin/usuarios/actions";
 import type { Sector } from "@/lib/types/database.types";
@@ -37,7 +38,7 @@ export function UserForm({
 
       <div>
         <Label htmlFor="password">Senha inicial</Label>
-        <Input id="password" name="password" type="password" minLength={6} required />
+        <PasswordInput id="password" name="password" minLength={6} required />
       </div>
 
       <div>
