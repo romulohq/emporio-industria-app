@@ -4,20 +4,37 @@ import { requireUser } from "@/lib/auth/get-session";
 import { Button } from "@/components/ui/button";
 import { OrderTable } from "@/components/orders/order-table";
 import { PedidosTabs } from "@/components/orders/pedidos-tabs";
-import type { Product, ProductionOrder, Sector } from "@/lib/types/database.types";
+import { UnitFilter } from "@/components/orders/unit-filter";
+import type { Product, ProductionOrder, ProductionUnit, Sector } from "@/lib/types/database.types";
 
-export default async function PedidosPage() {
+export default async function PedidosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ unit?: string }>;
+}) {
   const { profile } = await requireUser();
+  const { unit: unitParam } = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: orders }, { data: products }, { data: sectors }] = await Promise.all([
-    supabase.from("production_orders").select("*").order("created_at", { ascending: false }),
-    supabase.from("products").select("*"),
-    supabase.from("sectors").select("*"),
-  ]);
+  const [{ data: orders }, { data: products }, { data: sectors }, { data: units }] =
+    await Promise.all([
+      supabase.from("production_orders").select("*").order("created_at", { ascending: false }),
+      supabase.from("products").select("*"),
+      supabase.from("sectors").select("*"),
+      supabase.from("production_units").select("*").order("slug"),
+    ]);
 
   const productsById = Object.fromEntries(((products ?? []) as Product[]).map((p) => [p.id, p]));
   const sectorsById = Object.fromEntries(((sectors ?? []) as Sector[]).map((s) => [s.id, s]));
+  const unitsList = (units ?? []) as ProductionUnit[];
+
+  const activeUnitSlug = unitParam ?? "rui-barbosa";
+  const activeUnit = unitsList.find((u) => u.slug === activeUnitSlug);
+
+  const filteredOrders = ((orders ?? []) as ProductionOrder[]).filter((order) => {
+    const sector = sectorsById[order.sector_id];
+    return sector && activeUnit && sector.unit_id === activeUnit.id;
+  });
 
   return (
     <div className="space-y-4">
@@ -30,11 +47,9 @@ export default async function PedidosPage() {
 
       <PedidosTabs isAdmin={profile.is_admin} />
 
-      <OrderTable
-        orders={(orders ?? []) as ProductionOrder[]}
-        productsById={productsById}
-        sectorsById={sectorsById}
-      />
+      {unitsList.length > 0 && <UnitFilter units={unitsList} active={activeUnitSlug} />}
+
+      <OrderTable orders={filteredOrders} productsById={productsById} sectorsById={sectorsById} />
     </div>
   );
 }
