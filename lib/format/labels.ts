@@ -1,4 +1,4 @@
-import type { MovementType, OrderPriority, OrderStatus } from "@/lib/types/database.types";
+import type { MovementType, OrderPriority, OrderStatus, Weekday } from "@/lib/types/database.types";
 
 export const STATUS_LABELS: Record<OrderStatus, string> = {
   pending: "Pendente",
@@ -24,6 +24,36 @@ export const MOVEMENT_LABELS: Record<MovementType, string> = {
 };
 
 export const MOVEMENT_ORDER: MovementType[] = ["entry", "exit", "adjustment"];
+
+export const WEEKDAY_LABELS: Record<Weekday, string> = {
+  monday: "Segunda",
+  tuesday: "Terça",
+  wednesday: "Quarta",
+  thursday: "Quinta",
+  friday: "Sexta",
+  saturday: "Sábado",
+  sunday: "Domingo",
+};
+
+export const WEEKDAY_SHORT_LABELS: Record<Weekday, string> = {
+  monday: "Seg",
+  tuesday: "Ter",
+  wednesday: "Qua",
+  thursday: "Qui",
+  friday: "Sex",
+  saturday: "Sáb",
+  sunday: "Dom",
+};
+
+export const WEEKDAY_ORDER: Weekday[] = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+];
 
 export function formatQuantity(value: number, unit: string) {
   return `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 }).format(value)} ${unit}`;

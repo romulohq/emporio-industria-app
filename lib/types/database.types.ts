@@ -52,6 +52,20 @@ export type StoreStockReport = {
 
 export type OrderSource = "manual" | "auto_route";
 
+export type Weekday =
+  | "monday"
+  | "tuesday"
+  | "wednesday"
+  | "thursday"
+  | "friday"
+  | "saturday"
+  | "sunday";
+
+export type StoreDeliveryDay = {
+  store_id: string;
+  weekday: Weekday;
+};
+
 export type ProductionOrderContribution = {
   order_id: string;
   store_id: string;
@@ -218,6 +232,12 @@ export type Database = {
         Row: ProductionOrderContribution;
         Insert: Partial<ProductionOrderContribution>;
         Update: Partial<ProductionOrderContribution>;
+        Relationships: Relationship[];
+      };
+      store_delivery_days: {
+        Row: StoreDeliveryDay;
+        Insert: Partial<StoreDeliveryDay>;
+        Update: Partial<StoreDeliveryDay>;
         Relationships: Relationship[];
       };
     };
