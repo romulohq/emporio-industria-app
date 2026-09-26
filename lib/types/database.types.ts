@@ -61,9 +61,13 @@ export type Weekday =
   | "saturday"
   | "sunday";
 
+export type DeliveryPeriod = "morning" | "afternoon";
+
 export type StoreDeliveryDay = {
   store_id: string;
   weekday: Weekday;
+  period: DeliveryPeriod;
+  position: number;
 };
 
 export type ProductionOrderContribution = {
