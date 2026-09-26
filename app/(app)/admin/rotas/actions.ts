@@ -11,26 +11,19 @@ export type FormState = { error?: string } | undefined;
 export async function createRoute(_prevState: FormState, formData: FormData): Promise<FormState> {
   await requireAdmin();
 
-  const parsed = createRouteSchema.safeParse({ name: formData.get("name") });
+  const parsed = createRouteSchema.safeParse({
+    name: formData.get("name"),
+    unit_id: formData.get("unit_id"),
+  });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
   }
 
   const supabase = await createClient();
-  const { data: unit } = await supabase
-    .from("production_units")
-    .select("id")
-    .eq("slug", "rui-barbosa")
-    .single();
-
-  if (!unit) {
-    return { error: "Unidade Rui Barbosa não encontrada." };
-  }
-
   const { error } = await supabase.from("delivery_routes").insert({
     name: parsed.data.name,
     slug: slugify(parsed.data.name),
-    unit_id: unit.id,
+    unit_id: parsed.data.unit_id,
   });
 
   if (error) {
