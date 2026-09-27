@@ -67,7 +67,7 @@ export default async function OrdensPorRotaPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-neutral-900">Ordens de produção — por rota</h1>
+        <h1 className="text-xl font-semibold text-neutral-900">Gestão de pedidos — por rota</h1>
         <p className="text-sm text-neutral-500">
           Gerado automaticamente a partir do estoque relatado pelas lojas da Unidade Rui Barbosa.
         </p>
