@@ -219,14 +219,24 @@ export default async function OrdensPorDiaPage() {
               <div key={sectorId} className="rounded-lg border border-neutral-200 bg-white">
                 <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
                   <span className="font-semibold text-neutral-900">{sectorsById[sectorId]?.name}</span>
-                  <Link
-                    href={`/pedidos/dia/imprimir-setor?date=${deliveryDate}&sector=${sectorId}`}
-                    className="flex items-center gap-1 text-xs font-medium text-orange-700 hover:text-orange-800"
-                    title={`Gerar ordem de produção — ${sectorsById[sectorId]?.name}`}
-                  >
-                    <Printer className="h-3.5 w-3.5" />
-                    Gerar ordem de produção
-                  </Link>
+                  <div className="flex items-center gap-3">
+                    <Link
+                      href={`/pedidos/dia/imprimir-setor?date=${deliveryDate}&sector=${sectorId}`}
+                      className="flex items-center gap-1 text-xs font-medium text-orange-700 hover:text-orange-800"
+                      title={`Ordem completa — ${sectorsById[sectorId]?.name}`}
+                    >
+                      <Printer className="h-3.5 w-3.5" />
+                      Ordem completa
+                    </Link>
+                    <Link
+                      href={`/pedidos/dia/imprimir-colaboradores?date=${deliveryDate}&sector=${sectorId}`}
+                      className="flex items-center gap-1 text-xs font-medium text-orange-700 hover:text-orange-800"
+                      title={`Por colaborador — ${sectorsById[sectorId]?.name}`}
+                    >
+                      <Printer className="h-3.5 w-3.5" />
+                      Por colaborador
+                    </Link>
+                  </div>
                 </div>
                 <div className="divide-y divide-neutral-100">
                   {sectorOrders.map((order) => {
