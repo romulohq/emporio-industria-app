@@ -29,7 +29,15 @@ const ADMIN_ITEMS = [
   { href: "/admin/rotas", label: "Rotas", icon: Route },
 ];
 
-export function Sidebar({ profile, sectors }: { profile: Profile; sectors: Sector[] }) {
+export function Sidebar({
+  profile,
+  sectors,
+  lateReportsCount = 0,
+}: {
+  profile: Profile;
+  sectors: Sector[];
+  lateReportsCount?: number;
+}) {
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-neutral-200/70 bg-white print:hidden">
       <div className="flex items-center gap-2.5 p-5">
@@ -51,6 +59,11 @@ export function Sidebar({ profile, sectors }: { profile: Profile; sectors: Secto
           >
             <item.icon className="h-[18px] w-[18px]" strokeWidth={2} />
             {item.label}
+            {item.href === "/pedidos" && lateReportsCount > 0 && (
+              <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-600 px-1 text-xs font-bold text-white">
+                {lateReportsCount}
+              </span>
+            )}
           </Link>
         ))}
 

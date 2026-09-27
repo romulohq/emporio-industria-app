@@ -101,9 +101,11 @@ export async function generateDayOrders(deliveryDateISO: string) {
       continue;
     }
 
+    const generatedAt = new Date().toISOString();
+
     let orderId = existingOrder?.id;
     if (orderId) {
-      await admin.from("production_orders").update({ quantity: total }).eq("id", orderId);
+      await admin.from("production_orders").update({ quantity: total, generated_at: generatedAt }).eq("id", orderId);
     } else {
       const { data: inserted, error } = await admin
         .from("production_orders")
@@ -116,6 +118,7 @@ export async function generateDayOrders(deliveryDateISO: string) {
           priority: "medium",
           quantity: total,
           requested_by: null,
+          generated_at: generatedAt,
         })
         .select("id")
         .single();

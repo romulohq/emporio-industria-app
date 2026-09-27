@@ -47,6 +47,8 @@ export type StoreStockReport = {
   product_id: string;
   quantity_reported: number;
   submission_id: string;
+  late_for_order_id: string | null;
+  late_acknowledged: boolean;
   created_at: string;
 };
 
@@ -116,6 +118,7 @@ export type ProductionOrder = {
   sector_id: string;
   route_id: string | null;
   delivery_date: string | null;
+  generated_at: string | null;
   source: OrderSource;
   quantity: number;
   status: OrderStatus;
