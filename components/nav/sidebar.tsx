@@ -18,7 +18,7 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "Painel", icon: LayoutDashboard },
   { href: "/produtos", label: "Produtos", icon: Package },
   { href: "/estoque", label: "Estoque", icon: Boxes },
-  { href: "/pedidos", label: "Gestão de pedidos", icon: ClipboardList },
+  { href: "/pedidos", label: "Pedidos", icon: ClipboardList },
   { href: "/historico", label: "Histórico", icon: History },
 ];
 

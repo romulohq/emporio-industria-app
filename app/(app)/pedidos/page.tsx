@@ -39,7 +39,7 @@ export default async function PedidosPage({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-neutral-900">Gestão de pedidos</h1>
+        <h1 className="text-xl font-semibold text-neutral-900">Pedidos</h1>
         <Link href="/pedidos/novo">
           <Button>Nova ordem</Button>
         </Link>
