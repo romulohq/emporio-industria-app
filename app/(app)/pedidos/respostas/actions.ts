@@ -33,6 +33,6 @@ export async function correctStockReport(formData: FormData) {
   });
 
   revalidatePath("/pedidos/respostas");
-  revalidatePath("/pedidos/rotas");
+  revalidatePath("/pedidos/dia");
   revalidatePath("/pedidos");
 }

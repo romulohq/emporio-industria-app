@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 const TABS = [
   { href: "/pedidos", label: "Todos" },
-  { href: "/pedidos/rotas", label: "Por rota (Rui Barbosa)" },
+  { href: "/pedidos/dia", label: "Por dia (Rui Barbosa)" },
   { href: "/pedidos/respostas", label: "Respostas das lojas", adminOnly: true },
 ];
 

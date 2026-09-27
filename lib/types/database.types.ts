@@ -75,6 +75,8 @@ export type ProductionOrderContribution = {
   store_id: string;
   sector_id: string;
   quantity: number;
+  report_id: string | null;
+  locked: boolean;
   updated_at: string;
 };
 
@@ -113,6 +115,7 @@ export type ProductionOrder = {
   product_id: string;
   sector_id: string;
   route_id: string | null;
+  delivery_date: string | null;
   source: OrderSource;
   quantity: number;
   status: OrderStatus;

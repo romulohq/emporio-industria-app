@@ -1,30 +1,33 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/get-session";
+import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/orders/status-badge";
 import { PedidosTabs } from "@/components/orders/pedidos-tabs";
+import { ContributionMenu, type ContributionHistoryItem } from "@/components/orders/contribution-menu";
 import { updateOrderStatus } from "@/app/(app)/pedidos/actions";
-import { STATUS_LABELS, STATUS_ORDER, formatQuantity } from "@/lib/format/labels";
+import { generateTomorrowOrders } from "./actions";
+import { weekdayOfISODate, formatBrDate } from "@/lib/dates";
+import { STATUS_LABELS, STATUS_ORDER, WEEKDAY_LABELS, formatQuantity } from "@/lib/format/labels";
 import type {
-  DeliveryRoute,
   Product,
   ProductionOrder,
   ProductionOrderContribution,
   Sector,
   Store,
+  StoreStockReport,
 } from "@/lib/types/database.types";
 
-export default async function OrdensPorRotaPage() {
+export default async function OrdensPorDiaPage() {
   const { profile } = await requireUser();
   const supabase = await createClient();
 
-  const [{ data: orders }, { data: routes }, { data: sectors }, { data: products }] = await Promise.all([
+  const [{ data: orders }, { data: sectors }, { data: products }] = await Promise.all([
     supabase
       .from("production_orders")
       .select("*")
       .eq("source", "auto_route")
       .in("status", ["pending", "in_progress"])
-      .order("created_at", { ascending: true }),
-    supabase.from("delivery_routes").select("*"),
+      .order("delivery_date", { ascending: true }),
     supabase.from("sectors").select("*"),
     supabase.from("products").select("*"),
   ]);
@@ -39,7 +42,6 @@ export default async function OrdensPorRotaPage() {
     ? await supabase.from("stores").select("*").in("id", storeIds)
     : { data: [] as Store[] };
 
-  const routesById = Object.fromEntries(((routes ?? []) as DeliveryRoute[]).map((r) => [r.id, r]));
   const sectorsById = Object.fromEntries(((sectors ?? []) as Sector[]).map((s) => [s.id, s]));
   const productsById = Object.fromEntries(((products ?? []) as Product[]).map((p) => [p.id, p]));
   const storesById = Object.fromEntries(((stores ?? []) as Store[]).map((s) => [s.id, s]));
@@ -51,37 +53,71 @@ export default async function OrdensPorRotaPage() {
     contributionsByOrder.set(c.order_id, list);
   }
 
-  // route -> sector -> orders
+  // admins get a per-store report history so they can pick an older one manually
+  const historyByStoreProduct = new Map<string, ContributionHistoryItem[]>();
+  if (profile.is_admin && storeIds.length) {
+    const productIds = [...new Set((orders ?? []).map((o) => o.product_id))];
+    const { data: reports } = await supabase
+      .from("store_stock_reports")
+      .select("*")
+      .in("store_id", storeIds)
+      .in("product_id", productIds)
+      .order("created_at", { ascending: false })
+      .limit(1000);
+
+    for (const report of (reports ?? []) as StoreStockReport[]) {
+      const key = `${report.store_id}:${report.product_id}`;
+      const list = historyByStoreProduct.get(key) ?? [];
+      if (list.length < 15) {
+        list.push({ reportId: report.id, createdAt: report.created_at, quantityReported: report.quantity_reported });
+        historyByStoreProduct.set(key, list);
+      }
+    }
+  }
+
+  // delivery_date -> sector -> orders
   const tree = new Map<string, Map<string, ProductionOrder[]>>();
   for (const order of (orders ?? []) as ProductionOrder[]) {
-    if (!order.route_id) continue;
-    const bySector = tree.get(order.route_id) ?? new Map<string, ProductionOrder[]>();
+    if (!order.delivery_date) continue;
+    const bySector = tree.get(order.delivery_date) ?? new Map<string, ProductionOrder[]>();
     const list = bySector.get(order.sector_id) ?? [];
     list.push(order);
     bySector.set(order.sector_id, list);
-    tree.set(order.route_id, bySector);
+    tree.set(order.delivery_date, bySector);
   }
 
-  const routeEntries = [...tree.entries()];
+  const dateEntries = [...tree.entries()].sort(([a], [b]) => (a < b ? -1 : 1));
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-neutral-900">Pedidos — por rota</h1>
-        <p className="text-sm text-neutral-500">
-          Gerado automaticamente a partir do estoque relatado pelas lojas da Unidade Rui Barbosa.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-neutral-900">Pedidos — por dia</h1>
+          <p className="text-sm text-neutral-500">
+            Gerado automaticamente a partir do estoque relatado pelas lojas da Unidade Rui Barbosa,
+            considerando o dia de entrega cadastrado de cada loja.
+          </p>
+        </div>
+        {profile.is_admin && (
+          <form action={generateTomorrowOrders}>
+            <Button type="submit" variant="secondary">
+              Gerar agora
+            </Button>
+          </form>
+        )}
       </div>
 
       <PedidosTabs isAdmin={profile.is_admin} />
 
-      {routeEntries.length === 0 && (
+      {dateEntries.length === 0 && (
         <p className="text-sm text-neutral-500">Nenhuma ordem automática em aberto no momento.</p>
       )}
 
-      {routeEntries.map(([routeId, bySector]) => (
-        <div key={routeId} className="space-y-3">
-          <h2 className="text-lg font-bold text-neutral-900">{routesById[routeId]?.name}</h2>
+      {dateEntries.map(([deliveryDate, bySector]) => (
+        <div key={deliveryDate} className="space-y-3">
+          <h2 className="text-lg font-bold text-neutral-900">
+            Ordem de produção — {WEEKDAY_LABELS[weekdayOfISODate(deliveryDate)]}, {formatBrDate(deliveryDate)}
+          </h2>
 
           <div className="grid gap-4 lg:grid-cols-2">
             {[...bySector.entries()].map(([sectorId, sectorOrders]) => (
@@ -101,12 +137,27 @@ export default async function OrdensPorRotaPage() {
                             {product ? formatQuantity(order.quantity, product.unit) : order.quantity}
                           </span>
                         </div>
-                        <div className="mt-1 flex items-center justify-between">
-                          <p className="text-xs text-neutral-500">
-                            {orderContributions
-                              .map((c) => `${storesById[c.store_id]?.name ?? "?"} (${c.quantity})`)
-                              .join(", ")}
-                          </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-1 gap-y-0.5">
+                          {orderContributions.map((c, i) => (
+                            <span key={c.store_id} className="flex items-center text-xs text-neutral-500">
+                              {i > 0 && <span className="mr-1">,</span>}
+                              <span className={c.locked ? "font-medium text-orange-700" : undefined}>
+                                {storesById[c.store_id]?.name ?? "?"} ({c.quantity})
+                              </span>
+                              {profile.is_admin && product && (
+                                <ContributionMenu
+                                  orderId={order.id}
+                                  storeId={c.store_id}
+                                  locked={c.locked}
+                                  currentReportId={c.report_id}
+                                  unit={product.unit}
+                                  history={historyByStoreProduct.get(`${c.store_id}:${order.product_id}`) ?? []}
+                                />
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="mt-1 flex items-center justify-end">
                           <StatusBadge status={order.status} />
                         </div>
                         <form action={updateOrderStatus} className="mt-2 flex items-center gap-2">
