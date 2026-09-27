@@ -80,11 +80,6 @@ export default async function ImprimirOrdemDoSetorPage({
         <p className="text-sm text-neutral-600">
           {WEEKDAY_LABELS[weekdayOfISODate(date)]}, {formatBrDate(date)}
         </p>
-        {(sector as Sector | null)?.responsible_name && (
-          <p className="text-sm text-neutral-600">
-            Responsável: <span className="font-semibold text-neutral-900">{(sector as Sector).responsible_name}</span>
-          </p>
-        )}
       </header>
 
       {sortedOrders.length === 0 ? (

@@ -7,8 +7,18 @@ export type Sector = {
   name: string;
   slug: string;
   unit_id: string | null;
-  responsible_name: string | null;
   created_at: string;
+};
+
+export type SectorResponsible = {
+  id: string;
+  sector_id: string;
+  role_name: string;
+  person_name: string;
+  active: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
 };
 
 export type ProductionUnit = {
@@ -107,6 +117,7 @@ export type Product = {
   current_quantity: number;
   min_quantity: number;
   production_group: number | null;
+  responsible_id: string | null;
   is_low_stock: boolean;
   active: boolean;
   created_by: string | null;
@@ -250,6 +261,12 @@ export type Database = {
         Row: StoreDeliveryDay;
         Insert: Partial<StoreDeliveryDay>;
         Update: Partial<StoreDeliveryDay>;
+        Relationships: Relationship[];
+      };
+      sector_responsibles: {
+        Row: SectorResponsible;
+        Insert: Partial<SectorResponsible>;
+        Update: Partial<SectorResponsible>;
         Relationships: Relationship[];
       };
     };
