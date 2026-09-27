@@ -2,8 +2,9 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/get-session";
 import { PrintButton } from "@/components/orders/print-button";
+import { OrderQuantityTable } from "@/components/orders/order-quantity-table";
 import { weekdayOfISODate, formatBrDate } from "@/lib/dates";
-import { WEEKDAY_LABELS, formatQuantity } from "@/lib/format/labels";
+import { WEEKDAY_LABELS } from "@/lib/format/labels";
 import type { Product, ProductionOrder, Sector } from "@/lib/types/database.types";
 
 export default async function ImprimirOrdemDoSetorPage({
@@ -41,6 +42,22 @@ export default async function ImprimirOrdemDoSetorPage({
     (productsById[a.product_id]?.name ?? "").localeCompare(productsById[b.product_id]?.name ?? "")
   );
 
+  const groups = new Map<number, ProductionOrder[]>();
+  const ungrouped: ProductionOrder[] = [];
+  for (const order of sortedOrders) {
+    const group = productsById[order.product_id]?.production_group;
+    if (group) {
+      const list = groups.get(group) ?? [];
+      list.push(order);
+      groups.set(group, list);
+    } else {
+      ungrouped.push(order);
+    }
+  }
+  const sortedGroupNumbers = [...groups.keys()].sort((a, b) => a - b);
+  const sectorName = (sector as Sector | null)?.name ?? "";
+  const groupLabel = (n: number) => (sectorName === "Confeitaria" ? `Confeiteira ${n}` : `Grupo ${n}`);
+
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6 print:p-0">
       <div className="flex items-center justify-between print:hidden">
@@ -72,34 +89,23 @@ export default async function ImprimirOrdemDoSetorPage({
 
       {sortedOrders.length === 0 ? (
         <p className="text-sm text-neutral-500">Nenhum pedido para este setor nesta data.</p>
+      ) : sortedGroupNumbers.length === 0 ? (
+        <OrderQuantityTable orders={sortedOrders} productsById={productsById} />
       ) : (
-        <table className="w-full border-collapse text-base">
-          <thead>
-            <tr className="bg-orange-50">
-              <th className="border border-orange-100 px-3 py-2 text-left font-semibold text-neutral-900">
-                Produto
-              </th>
-              <th className="border border-orange-100 px-3 py-2 text-right font-semibold text-neutral-900">
-                Quantidade
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedOrders.map((order) => {
-              const product = productsById[order.product_id];
-              return (
-                <tr key={order.id} className="even:bg-neutral-50">
-                  <td className="border border-neutral-200 px-3 py-2 font-medium text-neutral-900">
-                    {product?.name ?? "—"}
-                  </td>
-                  <td className="border border-neutral-200 px-3 py-2 text-right font-bold text-neutral-900">
-                    {product ? formatQuantity(order.quantity, product.unit) : order.quantity}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div className="space-y-5">
+          {sortedGroupNumbers.map((n) => (
+            <section key={n} className="space-y-2 break-inside-avoid">
+              <h2 className="text-lg font-bold text-orange-700">{groupLabel(n)}</h2>
+              <OrderQuantityTable orders={groups.get(n)!} productsById={productsById} />
+            </section>
+          ))}
+          {ungrouped.length > 0 && (
+            <section className="space-y-2 break-inside-avoid">
+              <h2 className="text-lg font-bold text-neutral-500">Sem grupo definido</h2>
+              <OrderQuantityTable orders={ungrouped} productsById={productsById} />
+            </section>
+          )}
+        </div>
       )}
     </div>
   );

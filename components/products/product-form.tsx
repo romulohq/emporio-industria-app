@@ -83,6 +83,21 @@ export function ProductForm({
         )}
       </div>
 
+      <div>
+        <Label htmlFor="production_group">Grupo de produção (opcional)</Label>
+        <Input
+          id="production_group"
+          name="production_group"
+          type="number"
+          step="1"
+          min={1}
+          defaultValue={product?.production_group ?? ""}
+        />
+        <p className="mt-1 text-xs text-neutral-500">
+          Agrupa este produto na ordem de produção impressa (ex: 1, 2, 3 — um número por colaborador).
+        </p>
+      </div>
+
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
 
       <Button type="submit" disabled={pending}>

@@ -106,6 +106,7 @@ export type Product = {
   unit: string;
   current_quantity: number;
   min_quantity: number;
+  production_group: number | null;
   is_low_stock: boolean;
   active: boolean;
   created_by: string | null;

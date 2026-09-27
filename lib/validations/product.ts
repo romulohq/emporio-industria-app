@@ -11,6 +11,13 @@ export const productSchema = z.object({
   unit: z.string().trim().min(1, "Informe a unidade").default("un"),
   min_quantity: z.coerce.number().min(0, "Não pode ser negativo"),
   current_quantity: z.coerce.number().min(0, "Não pode ser negativo").optional(),
+  production_group: z
+    .union([z.string(), z.number(), z.null(), z.undefined()])
+    .transform((v) => {
+      if (v === null || v === undefined || v === "") return null;
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? Math.trunc(n) : null;
+    }),
 });
 
 export type ProductInput = z.infer<typeof productSchema>;
