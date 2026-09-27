@@ -31,7 +31,7 @@ const ADMIN_ITEMS = [
 
 export function Sidebar({ profile, sectors }: { profile: Profile; sectors: Sector[] }) {
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-neutral-200/70 bg-white">
+    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-neutral-200/70 bg-white print:hidden">
       <div className="flex items-center gap-2.5 p-5">
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-600 text-sm font-extrabold text-white">
           EP

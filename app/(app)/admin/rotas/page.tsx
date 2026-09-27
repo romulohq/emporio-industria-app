@@ -41,12 +41,19 @@ export default async function RotasPage({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-neutral-900">Rotas de entrega</h1>
+      <h1 className="text-xl font-semibold text-neutral-900 print:hidden">Rotas de entrega</h1>
 
-      {unitsList.length > 0 && <UnitFilter units={unitsList} active={activeUnitSlug} basePath="/admin/rotas" />}
+      {unitsList.length > 0 && (
+        <div className="print:hidden">
+          <UnitFilter units={unitsList} active={activeUnitSlug} basePath="/admin/rotas" />
+        </div>
+      )}
 
       <div>
-        <h2 className="mb-2 text-sm font-semibold text-neutral-900">Dias de entrega</h2>
+        <h2 className="mb-2 text-sm font-semibold text-neutral-900">
+          Dias de entrega
+          {activeUnit && <span className="hidden print:inline"> — {activeUnit.name}</span>}
+        </h2>
         {unitStores.length === 0 ? (
           <p className="text-sm text-neutral-500">Nenhuma loja cadastrada nesta unidade ainda.</p>
         ) : (
@@ -59,7 +66,7 @@ export default async function RotasPage({
         )}
       </div>
 
-      <details className="rounded-lg border border-neutral-200 bg-white">
+      <details className="rounded-lg border border-neutral-200 bg-white print:hidden">
         <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium text-neutral-700">
           Gerenciar rotas cadastradas
         </summary>
