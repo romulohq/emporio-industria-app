@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/get-session";
 import { Button } from "@/components/ui/button";
@@ -216,8 +217,16 @@ export default async function OrdensPorDiaPage() {
           <div className="grid gap-4 lg:grid-cols-2">
             {[...bySector.entries()].map(([sectorId, sectorOrders]) => (
               <div key={sectorId} className="rounded-lg border border-neutral-200 bg-white">
-                <div className="border-b border-neutral-100 px-4 py-3 font-semibold text-neutral-900">
-                  {sectorsById[sectorId]?.name}
+                <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
+                  <span className="font-semibold text-neutral-900">{sectorsById[sectorId]?.name}</span>
+                  <Link
+                    href={`/pedidos/dia/imprimir-setor?date=${deliveryDate}&sector=${sectorId}`}
+                    className="flex items-center gap-1 text-xs font-medium text-orange-700 hover:text-orange-800"
+                    title={`Gerar ordem de produção — ${sectorsById[sectorId]?.name}`}
+                  >
+                    <Printer className="h-3.5 w-3.5" />
+                    Gerar ordem de produção
+                  </Link>
                 </div>
                 <div className="divide-y divide-neutral-100">
                   {sectorOrders.map((order) => {

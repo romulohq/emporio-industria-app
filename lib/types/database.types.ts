@@ -7,6 +7,7 @@ export type Sector = {
   name: string;
   slug: string;
   unit_id: string | null;
+  responsible_name: string | null;
   created_at: string;
 };
 
