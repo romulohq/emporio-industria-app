@@ -13,10 +13,10 @@ type Sheet = { key: string; title: string; items: CollaboratorSheetItem[] };
 export default async function ImprimirPorColaboradorPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; sector?: string; responsavel?: string }>;
+  searchParams: Promise<{ date?: string; sector?: string; responsavel?: string; alterados?: string; versao?: string }>;
 }) {
   await requireUser();
-  const { date, sector: sectorId, responsavel } = await searchParams;
+  const { date, sector: sectorId, responsavel, alterados, versao } = await searchParams;
   const supabase = await createClient();
 
   if (!date || !sectorId) {
@@ -84,7 +84,12 @@ export default async function ImprimirPorColaboradorPage({
     sheets.push({ key: "sem", title: "PRODUTOS SEM RESPONSÁVEL", items: sortByName(unassignedItems) });
   }
 
-  const visibleSheets = responsavel ? sheets.filter((s) => s.key === responsavel) : sheets;
+  const alteredKeys = alterados ? new Set(alterados.split(",").filter(Boolean)) : null;
+  const visibleSheets = responsavel
+    ? sheets.filter((s) => s.key === responsavel)
+    : alteredKeys
+      ? sheets.filter((s) => alteredKeys.has(s.key))
+      : sheets;
 
   const sectorName = (sector as Sector | null)?.name ?? "";
   const weekdayLabel = WEEKDAY_LABELS[weekdayOfISODate(date)];
@@ -107,6 +112,24 @@ export default async function ImprimirPorColaboradorPage({
         </div>
       </div>
 
+      {(alteredKeys || versao) && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 print:hidden">
+          {versao && <p className="font-semibold">Versão {versao} — a ordem foi gerada novamente.</p>}
+          {alteredKeys && (
+            <p>
+              Mostrando só as folhas que mudaram nesta versão. Folhas já impressas antes desta atualização estão
+              desatualizadas.{" "}
+              <Link
+                href={`/pedidos/dia/imprimir-colaboradores?date=${date}&sector=${sectorId}`}
+                className="font-medium underline"
+              >
+                Ver todas as folhas
+              </Link>
+            </p>
+          )}
+        </div>
+      )}
+
       {visibleSheets.length === 0 && (
         <p className="text-sm text-neutral-500">Nenhuma folha pra mostrar — a ordem está vazia ou já concluída.</p>
       )}
@@ -114,9 +137,7 @@ export default async function ImprimirPorColaboradorPage({
       {visibleSheets.map((sheet, index) => (
         <CollaboratorSheet
           key={sheet.key}
-          sectorName={sectorName}
-          weekdayLabel={weekdayLabel}
-          brDate={brDate}
+          subtitle={`${sectorName} · ${weekdayLabel}, ${brDate}`}
           title={sheet.title}
           items={sheet.items}
           isFirst={index === 0}

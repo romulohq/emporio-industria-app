@@ -31,6 +31,18 @@ function alignedSendDate(deliveryDateISO: string, sendWeekday: Weekday): string 
   return addDaysISO(deliveryDateISO, -gap);
 }
 
+/**
+ * The submission deadline instant for a KNOWN delivery date (already decided
+ * — e.g. a report's own store_stock_reports.delivery_date), given that
+ * store's send weekday/time for the matching delivery weekday. Unlike
+ * computeCurrentCycle, this doesn't pick among multiple configs or roll
+ * forward — the cycle is already fixed, we just need its deadline.
+ */
+export function deadlineForDeliveryDate(deliveryDateISO: string, sendWeekday: Weekday, deadlineTime: string): Date {
+  const sendDate = alignedSendDate(deliveryDateISO, sendWeekday);
+  return zonedInstant(sendDate, deadlineTime);
+}
+
 export type DeliveryDeadlineConfig = {
   weekday: Weekday;
   sendWeekday: Weekday;

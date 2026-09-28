@@ -8,19 +8,17 @@ export type CollaboratorSheetItem = {
 };
 
 export function CollaboratorSheet({
-  sectorName,
-  weekdayLabel,
-  brDate,
+  subtitle,
   title,
   items,
   isFirst,
+  checkColumnLabel = "Feito ✓",
 }: {
-  sectorName: string;
-  weekdayLabel: string;
-  brDate: string;
+  subtitle: string;
   title: string;
   items: CollaboratorSheetItem[];
   isFirst: boolean;
+  checkColumnLabel?: string;
 }) {
   return (
     <section className={isFirst ? "collaborator-sheet" : "collaborator-sheet break-before-page"}>
@@ -36,9 +34,7 @@ export function CollaboratorSheet({
                   Empório do Pão — Ordem de Produção
                 </span>
               </div>
-              <p className="mt-1 text-sm text-neutral-600">
-                {sectorName} · {weekdayLabel}, {brDate}
-              </p>
+              <p className="mt-1 text-sm text-neutral-600">{subtitle}</p>
               <p className="mt-2 text-xl font-black uppercase tracking-wide text-neutral-900">{title}</p>
             </th>
           </tr>
@@ -50,7 +46,7 @@ export function CollaboratorSheet({
               Quantidade
             </th>
             <th className="w-24 border border-orange-100 px-3 py-2 text-center font-semibold text-neutral-900">
-              Feito ✓
+              {checkColumnLabel}
             </th>
           </tr>
         </thead>

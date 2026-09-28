@@ -87,6 +87,27 @@ export type StoreDeliveryDay = {
   is_custom: boolean;
 };
 
+export type OrderRegeneration = {
+  id: string;
+  sector_id: string;
+  delivery_date: string;
+  version_number: number;
+  reason: string | null;
+  triggered_by: string | null;
+  created_at: string;
+  snapshot: unknown;
+};
+
+export type LateReportDecisionRow = {
+  id: string;
+  report_id: string;
+  sector_id: string;
+  delivery_date: string;
+  decision: "regenerated" | "kept";
+  decided_by: string | null;
+  decided_at: string;
+};
+
 export type ProductionOrderContribution = {
   order_id: string;
   store_id: string;
@@ -136,6 +157,7 @@ export type ProductionOrder = {
   route_id: string | null;
   delivery_date: string | null;
   generated_at: string | null;
+  current_version: number;
   source: OrderSource;
   quantity: number;
   status: OrderStatus;
@@ -271,6 +293,18 @@ export type Database = {
         Row: SectorResponsible;
         Insert: Partial<SectorResponsible>;
         Update: Partial<SectorResponsible>;
+        Relationships: Relationship[];
+      };
+      order_regenerations: {
+        Row: OrderRegeneration;
+        Insert: Partial<OrderRegeneration>;
+        Update: Partial<OrderRegeneration>;
+        Relationships: Relationship[];
+      };
+      late_report_decisions: {
+        Row: LateReportDecisionRow;
+        Insert: Partial<LateReportDecisionRow>;
+        Update: Partial<LateReportDecisionRow>;
         Relationships: Relationship[];
       };
     };

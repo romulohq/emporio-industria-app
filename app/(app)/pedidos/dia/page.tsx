@@ -6,10 +6,13 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/orders/status-badge";
 import { PedidosTabs } from "@/components/orders/pedidos-tabs";
 import { ContributionMenu, type ContributionHistoryItem } from "@/components/orders/contribution-menu";
+import { LateReportGroupCard } from "@/components/orders/late-report-group-card";
+import { LateReportsPopup } from "@/components/orders/late-reports-popup";
 import { updateOrderStatus } from "@/app/(app)/pedidos/actions";
-import { generateTomorrowOrders, useLateReport, dismissLateReport } from "./actions";
-import { weekdayOfISODate, formatBrDate } from "@/lib/dates";
-import { STATUS_LABELS, STATUS_ORDER, WEEKDAY_LABELS, formatDateTime, formatQuantity } from "@/lib/format/labels";
+import { generateTomorrowOrders } from "./actions";
+import { getUndecidedLateReports, groupLateReports } from "@/lib/orders/late-reports";
+import { weekdayOfISODate, formatBrDate, fortalezaDateISO, addDaysISO } from "@/lib/dates";
+import { STATUS_LABELS, STATUS_ORDER, WEEKDAY_LABELS, formatQuantity } from "@/lib/format/labels";
 import type {
   Product,
   ProductionOrder,
@@ -24,12 +27,15 @@ export default async function OrdensPorDiaPage() {
   const { profile } = await requireUser();
   const supabase = await createClient();
 
+  const todayISO = fortalezaDateISO();
+
   const [{ data: orders }, { data: sectors }, { data: products }] = await Promise.all([
     supabase
       .from("production_orders")
       .select("*")
       .eq("source", "auto_route")
       .in("status", ["pending", "in_progress"])
+      .gt("delivery_date", todayISO)
       .order("delivery_date", { ascending: true }),
     supabase.from("sectors").select("*"),
     supabase.from("products").select("*"),
@@ -78,48 +84,8 @@ export default async function OrdensPorDiaPage() {
     }
   }
 
-  // admins see a "late report" inbox for stragglers that missed an already-generated order
-  type LateReport = {
-    reportId: string;
-    storeName: string;
-    productName: string;
-    unit: string;
-    quantityReported: number;
-    createdAt: string;
-  };
-  const lateReports: LateReport[] = [];
-  if (profile.is_admin) {
-    const { data: late } = await supabase
-      .from("store_stock_reports")
-      .select("*")
-      .not("late_for_order_id", "is", null)
-      .eq("late_acknowledged", false)
-      .order("created_at", { ascending: false });
-
-    const lateRows = (late ?? []) as StoreStockReport[];
-    if (lateRows.length) {
-      const lateStoreIds = [...new Set(lateRows.map((r) => r.store_id))];
-      const lateProductIds = [...new Set(lateRows.map((r) => r.product_id))];
-      const [{ data: lateStores }, { data: lateProducts }] = await Promise.all([
-        supabase.from("stores").select("*").in("id", lateStoreIds),
-        supabase.from("products").select("*").in("id", lateProductIds),
-      ]);
-      const lateStoresById = Object.fromEntries(((lateStores ?? []) as Store[]).map((s) => [s.id, s]));
-      const lateProductsById = Object.fromEntries(((lateProducts ?? []) as Product[]).map((p) => [p.id, p]));
-
-      for (const report of lateRows) {
-        const product = lateProductsById[report.product_id];
-        lateReports.push({
-          reportId: report.id,
-          storeName: lateStoresById[report.store_id]?.name ?? "?",
-          productName: product?.name ?? "?",
-          unit: product?.unit ?? "",
-          quantityReported: report.quantity_reported,
-          createdAt: report.created_at,
-        });
-      }
-    }
-  }
+  // admins get a grouped inbox of late reports for stragglers that missed an already-generated order
+  const lateGroups = profile.is_admin ? groupLateReports(await getUndecidedLateReports()) : [];
 
   // delivery_date -> sector -> orders
   const tree = new Map<string, Map<string, ProductionOrder[]>>();
@@ -200,46 +166,22 @@ export default async function OrdensPorDiaPage() {
 
       <PedidosTabs isAdmin={profile.is_admin} />
 
-      {lateReports.length > 0 && (
-        <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
-          <p className="text-sm font-semibold text-orange-800">
-            {lateReports.length === 1 ? "1 pedido atrasado" : `${lateReports.length} pedidos atrasados`} — chegaram
-            depois do pedido do dia já ter sido gerado
-          </p>
-          <div className="mt-2 space-y-2">
-            {lateReports.map((report) => (
-              <div
-                key={report.reportId}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-white px-3 py-2 text-sm"
-              >
-                <span className="text-neutral-700">
-                  <span className="font-medium text-neutral-900">{report.storeName}</span> — {report.productName}:{" "}
-                  {formatQuantity(report.quantityReported, report.unit)} relatado ({formatDateTime(report.createdAt)})
-                </span>
-                <div className="flex items-center gap-2">
-                  <form action={useLateReport}>
-                    <input type="hidden" name="report_id" value={report.reportId} />
-                    <button
-                      type="submit"
-                      className="rounded-md bg-orange-600 px-2 py-1 text-xs text-white hover:bg-orange-700"
-                    >
-                      Usar este valor
-                    </button>
-                  </form>
-                  <form action={dismissLateReport}>
-                    <input type="hidden" name="report_id" value={report.reportId} />
-                    <button
-                      type="submit"
-                      className="rounded-md border border-neutral-300 px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-50"
-                    >
-                      Ignorar
-                    </button>
-                  </form>
-                </div>
-              </div>
+      {lateGroups.length > 0 && (
+        <>
+          <LateReportsPopup groups={lateGroups} />
+          <div className="space-y-3">
+            {lateGroups.map((group) => (
+              <LateReportGroupCard
+                key={`${group.sectorId}:${group.deliveryDate}`}
+                sectorId={group.sectorId}
+                sectorName={group.sectorName}
+                deliveryDate={group.deliveryDate}
+                deliveryLabel={`${WEEKDAY_LABELS[weekdayOfISODate(group.deliveryDate)]}, ${formatBrDate(group.deliveryDate)}`}
+                items={group.items}
+              />
             ))}
           </div>
-        </div>
+        </>
       )}
 
       {dateEntries.length === 0 && (
@@ -249,15 +191,29 @@ export default async function OrdensPorDiaPage() {
       {dateEntries.map(([deliveryDate, bySector]) => (
         <div key={deliveryDate} className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-neutral-900">
-              Ordem de produção — {WEEKDAY_LABELS[weekdayOfISODate(deliveryDate)]}, {formatBrDate(deliveryDate)}
-            </h2>
-            <Link
-              href={`/pedidos/dia/imprimir?date=${deliveryDate}`}
-              className="text-sm font-medium text-orange-700 hover:text-orange-800"
-            >
-              Imprimir
-            </Link>
+            <div>
+              <h2 className="text-lg font-bold text-neutral-900">
+                Ordem de produção de hoje — {WEEKDAY_LABELS[weekdayOfISODate(addDaysISO(deliveryDate, -1))]},{" "}
+                {formatBrDate(addDaysISO(deliveryDate, -1))}
+              </h2>
+              <p className="text-sm text-neutral-500">
+                Entrega: {WEEKDAY_LABELS[weekdayOfISODate(deliveryDate)]}, {formatBrDate(deliveryDate)}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Link
+                href={`/pedidos/dia/imprimir?date=${deliveryDate}`}
+                className="text-sm font-medium text-orange-700 hover:text-orange-800"
+              >
+                Imprimir
+              </Link>
+              <Link
+                href={`/pedidos/dia/imprimir-romaneio?date=${deliveryDate}`}
+                className="text-sm font-medium text-orange-700 hover:text-orange-800"
+              >
+                Imprimir romaneio de entrega
+              </Link>
+            </div>
           </div>
 
           {missingByDate.get(deliveryDate) && (
@@ -268,11 +224,20 @@ export default async function OrdensPorDiaPage() {
           )}
 
           <div className="grid gap-4 lg:grid-cols-2">
-            {[...bySector.entries()].map(([sectorId, sectorOrders]) => (
+            {[...bySector.entries()].map(([sectorId, sectorOrders]) => {
+              const maxVersion = sectorOrders.reduce((max, o) => Math.max(max, o.current_version ?? 1), 1);
+              return (
               <div key={sectorId} className="rounded-lg border border-neutral-200 bg-white">
                 <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
-                  <span className="font-semibold text-neutral-900">{sectorsById[sectorId]?.name}</span>
-                  <div className="flex items-center gap-3">
+                  <span className="flex items-center gap-2 font-semibold text-neutral-900">
+                    {sectorsById[sectorId]?.name}
+                    {maxVersion > 1 && (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                        Versão {maxVersion}
+                      </span>
+                    )}
+                  </span>
+                  <div className="flex flex-wrap items-center gap-3">
                     <Link
                       href={`/pedidos/dia/imprimir-setor?date=${deliveryDate}&sector=${sectorId}`}
                       className="flex items-center gap-1 text-xs font-medium text-orange-700 hover:text-orange-800"
@@ -351,7 +316,8 @@ export default async function OrdensPorDiaPage() {
                   })}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       ))}
