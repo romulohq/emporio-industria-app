@@ -57,6 +57,7 @@ export default async function DashboardPage() {
     day: "numeric",
     month: "long",
     year: "numeric",
+    timeZone: "America/Fortaleza",
   }).format(new Date());
   const today = todayRaw.charAt(0).toUpperCase() + todayRaw.slice(1);
 

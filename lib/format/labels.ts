@@ -76,5 +76,6 @@ export function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short",
     timeStyle: "short",
+    timeZone: "America/Fortaleza",
   }).format(new Date(value));
 }
