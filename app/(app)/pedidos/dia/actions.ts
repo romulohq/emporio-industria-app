@@ -165,7 +165,9 @@ export async function keepCurrentOrder(formData: FormData) {
     }))
   );
 
-  await supabase.from("store_stock_reports").update({ late_acknowledged: true }).in("id", report_ids);
+  // store_stock_reports has no update RLS policy (only the sync trigger writes to it),
+  // so this must go through the admin client or it silently no-ops.
+  await createAdminClient().from("store_stock_reports").update({ late_acknowledged: true }).in("id", report_ids);
 
   revalidateOrdersPaths();
 }
@@ -212,7 +214,9 @@ export async function regenerateWithLateReports(formData: FormData) {
         decided_by: userId,
       }))
     );
-    await supabase.from("store_stock_reports").update({ late_acknowledged: true }).in("id", allDecided);
+    // store_stock_reports has no update RLS policy (only the sync trigger writes to it),
+    // so this must go through the admin client or it silently no-ops.
+    await createAdminClient().from("store_stock_reports").update({ late_acknowledged: true }).in("id", allDecided);
   }
 
   revalidateOrdersPaths();
