@@ -16,6 +16,7 @@ import type {
   ProductionOrderContribution,
   Sector,
   Store,
+  StoreDeliveryDay,
   StoreStockReport,
 } from "@/lib/types/database.types";
 
@@ -133,6 +134,51 @@ export default async function OrdensPorDiaPage() {
 
   const dateEntries = [...tree.entries()].sort(([a], [b]) => (a < b ? -1 : 1));
 
+  // stores expected for each date (by weekday) that haven't reported for THIS exact cycle yet
+  const deliveryDates = dateEntries.map(([d]) => d);
+  const weekdaysNeeded = [...new Set(deliveryDates.map((d) => weekdayOfISODate(d)))];
+
+  const [{ data: allDeliveryDays }, { data: cycleReports }] = await Promise.all([
+    weekdaysNeeded.length
+      ? supabase.from("store_delivery_days").select("*").in("weekday", weekdaysNeeded)
+      : Promise.resolve({ data: [] as StoreDeliveryDay[] }),
+    deliveryDates.length
+      ? supabase.from("store_stock_reports").select("store_id, delivery_date").in("delivery_date", deliveryDates)
+      : Promise.resolve({ data: [] as { store_id: string; delivery_date: string | null }[] }),
+  ]);
+
+  const scheduledStoreIdsByDate = new Map<string, Set<string>>();
+  for (const date of deliveryDates) {
+    const weekday = weekdayOfISODate(date);
+    const ids = new Set(
+      ((allDeliveryDays ?? []) as StoreDeliveryDay[]).filter((d) => d.weekday === weekday).map((d) => d.store_id)
+    );
+    scheduledStoreIdsByDate.set(date, ids);
+  }
+
+  const reportedStoreIdsByDate = new Map<string, Set<string>>();
+  for (const r of (cycleReports ?? []) as { store_id: string; delivery_date: string | null }[]) {
+    if (!r.delivery_date) continue;
+    const set = reportedStoreIdsByDate.get(r.delivery_date) ?? new Set<string>();
+    set.add(r.store_id);
+    reportedStoreIdsByDate.set(r.delivery_date, set);
+  }
+
+  const allScheduledStoreIds = new Set<string>();
+  for (const ids of scheduledStoreIdsByDate.values()) for (const id of ids) allScheduledStoreIds.add(id);
+  const { data: allStoresForMissing } = allScheduledStoreIds.size
+    ? await supabase.from("stores").select("id, name").in("id", [...allScheduledStoreIds])
+    : { data: [] as { id: string; name: string }[] };
+  const storeNameById = Object.fromEntries((allStoresForMissing ?? []).map((s) => [s.id, s.name]));
+
+  const missingByDate = new Map<string, string[]>();
+  for (const date of deliveryDates) {
+    const scheduled = scheduledStoreIdsByDate.get(date) ?? new Set<string>();
+    const reported = reportedStoreIdsByDate.get(date) ?? new Set<string>();
+    const missing = [...scheduled].filter((id) => !reported.has(id)).map((id) => storeNameById[id] ?? "?");
+    if (missing.length) missingByDate.set(date, missing.sort());
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -213,6 +259,13 @@ export default async function OrdensPorDiaPage() {
               Imprimir
             </Link>
           </div>
+
+          {missingByDate.get(deliveryDate) && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              <span className="font-semibold">Pedido não recebido:</span>{" "}
+              {missingByDate.get(deliveryDate)!.join(", ")}
+            </div>
+          )}
 
           <div className="grid gap-4 lg:grid-cols-2">
             {[...bySector.entries()].map(([sectorId, sectorOrders]) => (

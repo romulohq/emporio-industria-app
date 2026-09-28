@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { generateDayOrders } from "@/lib/orders/generate-day-orders";
-import { saoPauloDateISO } from "@/lib/dates";
+import { fortalezaDateISO } from "@/lib/dates";
 
 /** Runs once a day (see vercel.json) to generate tomorrow's Rui Barbosa production orders. */
 export async function GET(request: Request) {
@@ -9,6 +9,6 @@ export async function GET(request: Request) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
-  const result = await generateDayOrders(saoPauloDateISO(1));
+  const result = await generateDayOrders(fortalezaDateISO(1));
   return NextResponse.json({ ok: true, ...result });
 }

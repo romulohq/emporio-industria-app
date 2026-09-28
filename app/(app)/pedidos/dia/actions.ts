@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/get-session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateDayOrders } from "@/lib/orders/generate-day-orders";
-import { saoPauloDateISO } from "@/lib/dates";
+import { fortalezaDateISO } from "@/lib/dates";
 import {
   manualContributionSchema,
   clearContributionSchema,
@@ -20,7 +20,7 @@ function revalidateOrdersPaths() {
 /** Generates tomorrow's order (freezing it from further automatic changes) and opens the print view. */
 export async function generateTomorrowOrders() {
   await requireAdmin();
-  const deliveryDate = saoPauloDateISO(1);
+  const deliveryDate = fortalezaDateISO(1);
   await generateDayOrders(deliveryDate);
   revalidateOrdersPaths();
   redirect(`/pedidos/dia/imprimir?date=${deliveryDate}`);

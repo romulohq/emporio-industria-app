@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth/get-session";
 import { createStoreSchema, updateStoreSchema } from "@/lib/validations/store";
 import { storeProductMinRowSchema } from "@/lib/validations/store-product-min";
+import { deadlineScheduleSchema } from "@/lib/validations/delivery-schedule";
 
 export type FormState = { error?: string } | undefined;
 
@@ -72,6 +73,50 @@ export async function regenerateStoreToken(formData: FormData) {
   const newToken = randomBytes(16).toString("hex");
   await supabase.from("stores").update({ access_token: newToken }).eq("id", storeId);
   revalidatePath("/admin/lojas");
+}
+
+export async function saveStoreDeliverySchedule(formData: FormData) {
+  await requireAdmin();
+
+  let entriesRaw: unknown;
+  try {
+    entriesRaw = JSON.parse(String(formData.get("entries") ?? "[]"));
+  } catch {
+    return;
+  }
+
+  const parsed = deadlineScheduleSchema.safeParse({
+    store_id: formData.get("store_id"),
+    entries: entriesRaw,
+  });
+  if (!parsed.success) return;
+
+  const { store_id, entries } = parsed.data;
+  const supabase = await createClient();
+  const enabledWeekdays = entries.map((e) => e.weekday);
+
+  await supabase
+    .from("store_delivery_days")
+    .delete()
+    .eq("store_id", store_id)
+    .not("weekday", "in", `(${enabledWeekdays.length ? enabledWeekdays.join(",") : "''"})`);
+
+  if (entries.length) {
+    await supabase.from("store_delivery_days").upsert(
+      entries.map((e) => ({
+        store_id,
+        weekday: e.weekday,
+        send_weekday: e.send_weekday,
+        deadline_time: e.deadline_time,
+        is_custom: e.is_custom,
+      })),
+      { onConflict: "store_id,weekday" }
+    );
+  }
+
+  revalidatePath(`/admin/lojas/${store_id}`);
+  revalidatePath(`/admin/lojas/${store_id}/prazos`);
+  revalidatePath("/admin/rotas");
 }
 
 export async function saveStoreProductMins(formData: FormData) {

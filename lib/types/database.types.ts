@@ -58,6 +58,7 @@ export type StoreStockReport = {
   product_id: string;
   quantity_reported: number;
   submission_id: string;
+  delivery_date: string | null;
   late_for_order_id: string | null;
   late_acknowledged: boolean;
   created_at: string;
@@ -81,6 +82,9 @@ export type StoreDeliveryDay = {
   weekday: Weekday;
   period: DeliveryPeriod;
   position: number;
+  send_weekday: Weekday;
+  deadline_time: string;
+  is_custom: boolean;
 };
 
 export type ProductionOrderContribution = {

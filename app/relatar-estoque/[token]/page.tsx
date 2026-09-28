@@ -1,6 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { StockReportForm, type ReportProduct } from "@/components/public/stock-report-form";
 import { submitStockReport } from "./actions";
+import { computeCurrentCycle } from "@/lib/delivery-schedule";
+import { formatBrDate } from "@/lib/dates";
+import { WEEKDAY_LABELS } from "@/lib/format/labels";
+import type { StoreDeliveryDay } from "@/lib/types/database.types";
 
 export default async function RelatarEstoquePage({
   params,
@@ -29,6 +33,19 @@ export default async function RelatarEstoquePage({
       </div>
     );
   }
+
+  const { data: deliveryDays } = await admin
+    .from("store_delivery_days")
+    .select("*")
+    .eq("store_id", store.id);
+
+  const cycle = computeCurrentCycle(
+    ((deliveryDays ?? []) as StoreDeliveryDay[]).map((d) => ({
+      weekday: d.weekday,
+      sendWeekday: d.send_weekday,
+      deadlineTime: d.deadline_time.slice(0, 5),
+    }))
+  );
 
   const { data: mins } = await admin
     .from("store_product_mins")
@@ -69,6 +86,25 @@ export default async function RelatarEstoquePage({
             se está alto ou baixo — o sistema calcula isso automaticamente.
           </p>
         </div>
+
+        {cycle && (
+          <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-orange-900">
+            <p>
+              Este pedido é para a entrega de{" "}
+              <span className="font-semibold">
+                {WEEKDAY_LABELS[cycle.deliveryWeekday]}, {formatBrDate(cycle.deliveryDate)}
+              </span>
+              .
+            </p>
+            <p>
+              Enviar até{" "}
+              <span className="font-semibold">
+                {WEEKDAY_LABELS[cycle.sendWeekday]}, {formatBrDate(cycle.sendDate)}, às {cycle.deadlineTime}
+              </span>
+              .
+            </p>
+          </div>
+        )}
 
         {groups.length === 0 ? (
           <p className="text-sm text-neutral-500">

@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StoreLink } from "@/components/admin/store-link";
-import { regenerateStoreToken } from "@/app/(app)/admin/lojas/actions";
+import { StoreRowMenu } from "@/components/admin/store-row-menu";
 import type { DeliveryRoute, Store } from "@/lib/types/database.types";
 
 export default async function LojasPage() {
@@ -48,23 +48,7 @@ export default async function LojasPage() {
                   <StoreLink path={`/relatar-estoque/${store.access_token}`} />
                 </td>
                 <td className="px-4 py-2 text-right">
-                  <div className="flex items-center justify-end gap-3">
-                    <Link
-                      href={`/admin/lojas/${store.id}/estoque-minimo`}
-                      className="text-amber-700 hover:underline"
-                    >
-                      Estoque mínimo
-                    </Link>
-                    <Link href={`/admin/lojas/${store.id}`} className="text-amber-700 hover:underline">
-                      Editar
-                    </Link>
-                    <form action={regenerateStoreToken}>
-                      <input type="hidden" name="store_id" value={store.id} />
-                      <button type="submit" className="text-neutral-500 underline hover:text-neutral-800">
-                        Gerar novo link
-                      </button>
-                    </form>
-                  </div>
+                  <StoreRowMenu storeId={store.id} />
                 </td>
               </tr>
             ))}
