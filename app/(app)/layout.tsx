@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth/get-session";
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar } from "@/components/nav/sidebar";
+import { fortalezaDateISO } from "@/lib/dates";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { profile, sectors } = await requireUser();
@@ -12,7 +13,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       .from("store_stock_reports")
       .select("id", { count: "exact", head: true })
       .not("late_for_order_id", "is", null)
-      .eq("late_acknowledged", false);
+      .eq("late_acknowledged", false)
+      .gt("delivery_date", fortalezaDateISO());
     lateReportsCount = count ?? 0;
   }
 

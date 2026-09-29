@@ -1,7 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { deadlineForDeliveryDate, defaultSendWeekday, DEFAULT_DEADLINE_TIME } from "@/lib/delivery-schedule";
-import { weekdayOfISODate } from "@/lib/dates";
+import { weekdayOfISODate, fortalezaDateISO } from "@/lib/dates";
 import type { Product, Sector, Store, StoreDeliveryDay, StoreStockReport } from "@/lib/types/database.types";
 
 export type LateReportRow = {
@@ -18,7 +18,12 @@ export type LateReportRow = {
   deliveryDate: string;
 };
 
-/** Every store report flagged late (arrived after its order was already generated) and not yet decided. */
+/**
+ * Every store report flagged late (arrived after its order was already generated) and not yet
+ * decided, for a delivery that's still the current actionable cycle (matches the same
+ * `delivery_date > hoje` cutoff as the "Pedidos — por dia" screen — once a delivery date has
+ * arrived, that order has moved to Histórico and re-litigating it no longer helps).
+ */
 export async function getUndecidedLateReports(): Promise<LateReportRow[]> {
   const supabase = await createClient();
   const { data: late } = await supabase
@@ -26,6 +31,7 @@ export async function getUndecidedLateReports(): Promise<LateReportRow[]> {
     .select("*")
     .not("late_for_order_id", "is", null)
     .eq("late_acknowledged", false)
+    .gt("delivery_date", fortalezaDateISO())
     .order("created_at", { ascending: false });
 
   const rows = (late ?? []) as StoreStockReport[];
