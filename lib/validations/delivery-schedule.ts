@@ -34,3 +34,16 @@ export const deadlineScheduleSchema = z.object({
 });
 
 export type DeadlineEntry = z.infer<typeof deadlineEntrySchema>;
+
+export const routeImpactGroupSchema = z.object({
+  sector_id: z.string().uuid(),
+  delivery_date: z.string().min(1),
+});
+
+export type RouteImpactGroup = z.infer<typeof routeImpactGroupSchema>;
+
+export const applyRouteImpactSchema = z.object({
+  unit_id: z.string().uuid(),
+  sector_ids: z.array(z.string().uuid()).min(1),
+  delivery_dates: z.array(z.string().min(1)).min(1),
+});

@@ -17,7 +17,7 @@ export function defaultSendWeekday(deliveryWeekday: Weekday): Weekday {
 
 /** Next occurrence of `weekday` that is strictly after today — a submission is
  * always prep for a future delivery, never today's own (already in motion). */
-function nextOccurrenceOnOrAfter(todayISO: string, weekday: Weekday): string {
+export function nextOccurrenceOnOrAfter(todayISO: string, weekday: Weekday): string {
   const todayWeekday = weekdayOfISODate(todayISO);
   let diff = (weekdayIndex(weekday) - weekdayIndex(todayWeekday) + 7) % 7;
   if (diff < 1) diff += 7;

@@ -1,11 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/get-session";
 import { createRouteSchema } from "@/lib/validations/route";
-import { scheduleSchema } from "@/lib/validations/delivery-schedule";
+import { scheduleSchema, applyRouteImpactSchema } from "@/lib/validations/delivery-schedule";
 import { defaultSendWeekday, DEFAULT_DEADLINE_TIME } from "@/lib/delivery-schedule";
+import { computeRouteScheduleImpact } from "@/lib/orders/route-schedule-impact";
+import { regenerateSectorDayOrder } from "@/lib/orders/regenerate-day-order";
 import { slugify } from "@/lib/format/slugify";
 import type { StoreDeliveryDay, Weekday } from "@/lib/types/database.types";
 
@@ -104,4 +108,52 @@ export async function saveUnitSchedule(formData: FormData) {
   }
 
   revalidatePath("/admin/rotas");
+
+  // a store just added to or removed from a weekday may affect an
+  // already-generated order for that weekday's next delivery — surface a
+  // review step instead of changing a printed order silently
+  const addedKeys = [...submittedKeys].filter((key) => !existingByKey.has(key));
+  const changedWeekdays = new Set<Weekday>();
+  for (const key of [...addedKeys, ...toDelete]) changedWeekdays.add(key.split(":")[1] as Weekday);
+
+  const impactGroups = await computeRouteScheduleImpact(changedWeekdays);
+  if (impactGroups.length > 0) {
+    const params = new URLSearchParams({ unit_id: unitId });
+    for (const group of impactGroups) {
+      params.append("sector_ids", group.sectorId);
+      params.append("delivery_dates", group.deliveryDate);
+    }
+    redirect(`/admin/rotas/revisar-impacto?${params.toString()}`);
+  }
+}
+
+/** Applies (regenerates) the day orders flagged as impacted by a route/schedule change. */
+export async function applyRouteScheduleImpact(formData: FormData) {
+  const { userId } = await requireAdmin();
+
+  const parsed = applyRouteImpactSchema.safeParse({
+    unit_id: formData.get("unit_id"),
+    sector_ids: formData.getAll("sector_ids"),
+    delivery_dates: formData.getAll("delivery_dates"),
+  });
+  if (!parsed.success || parsed.data.sector_ids.length !== parsed.data.delivery_dates.length) return;
+
+  const { unit_id, sector_ids, delivery_dates } = parsed.data;
+
+  for (let i = 0; i < sector_ids.length; i++) {
+    await regenerateSectorDayOrder(
+      sector_ids[i],
+      delivery_dates[i],
+      new Set(),
+      "Alteração na rota/dias de entrega",
+      userId
+    );
+  }
+
+  revalidatePath("/pedidos");
+  revalidatePath("/pedidos/dia");
+
+  const admin = createAdminClient();
+  const { data: unit } = await admin.from("production_units").select("slug").eq("id", unit_id).maybeSingle();
+  redirect(`/admin/rotas${unit?.slug ? `?unit=${unit.slug}` : ""}`);
 }

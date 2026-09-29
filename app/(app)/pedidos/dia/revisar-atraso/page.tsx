@@ -2,31 +2,13 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth/get-session";
 import { Button } from "@/components/ui/button";
-import { diffDayOrders, type DiffItem } from "@/lib/orders/diff-day-orders";
+import { diffDayOrders } from "@/lib/orders/diff-day-orders";
 import { getUndecidedLateReports } from "@/lib/orders/late-reports";
 import { regenerateWithLateReports } from "@/app/(app)/pedidos/dia/actions";
+import { DiffList } from "@/components/orders/diff-list";
 import { weekdayOfISODate, formatBrDate } from "@/lib/dates";
-import { WEEKDAY_LABELS, formatQuantity } from "@/lib/format/labels";
+import { WEEKDAY_LABELS } from "@/lib/format/labels";
 import type { Sector, SectorResponsible } from "@/lib/types/database.types";
-
-function DiffList({ title, items, tone }: { title: string; items: DiffItem[]; unit?: string; tone: string }) {
-  if (items.length === 0) return null;
-  return (
-    <div>
-      <p className={`text-xs font-semibold uppercase tracking-wide ${tone}`}>{title}</p>
-      <ul className="mt-1 space-y-1">
-        {items.map((item) => (
-          <li key={item.productId} className="flex items-center justify-between text-sm">
-            <span className="text-neutral-800">{item.productName}</span>
-            <span className="font-medium text-neutral-900">
-              {formatQuantity(item.before, item.unit)} → {formatQuantity(item.after, item.unit)}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
 
 export default async function RevisarAtrasoPage({
   searchParams,
