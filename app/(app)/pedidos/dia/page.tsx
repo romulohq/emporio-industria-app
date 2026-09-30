@@ -100,21 +100,25 @@ export default async function OrdensPorDiaPage() {
 
   const dateEntries = [...tree.entries()].sort(([a], [b]) => (a < b ? -1 : 1));
 
-  // stores expected for each date (by weekday) that haven't reported for THIS exact cycle yet
-  const deliveryDates = dateEntries.map(([d]) => d);
-  const weekdaysNeeded = [...new Set(deliveryDates.map((d) => weekdayOfISODate(d)))];
+  // tomorrow should always have an order by now (generated D-1 morning) — check it for
+  // missing stores even when nothing was generated yet, so a day with zero reports isn't
+  // simply invisible just because there's no order to hang the warning on
+  const tomorrowISO = fortalezaDateISO(1);
+  const orderDates = dateEntries.map(([d]) => d);
+  const checkDates = [...new Set([...orderDates, tomorrowISO])];
+  const weekdaysNeeded = [...new Set(checkDates.map((d) => weekdayOfISODate(d)))];
 
   const [{ data: allDeliveryDays }, { data: cycleReports }] = await Promise.all([
     weekdaysNeeded.length
       ? supabase.from("store_delivery_days").select("*").in("weekday", weekdaysNeeded)
       : Promise.resolve({ data: [] as StoreDeliveryDay[] }),
-    deliveryDates.length
-      ? supabase.from("store_stock_reports").select("store_id, delivery_date").in("delivery_date", deliveryDates)
+    checkDates.length
+      ? supabase.from("store_stock_reports").select("store_id, delivery_date").in("delivery_date", checkDates)
       : Promise.resolve({ data: [] as { store_id: string; delivery_date: string | null }[] }),
   ]);
 
   const scheduledStoreIdsByDate = new Map<string, Set<string>>();
-  for (const date of deliveryDates) {
+  for (const date of checkDates) {
     const weekday = weekdayOfISODate(date);
     const ids = new Set(
       ((allDeliveryDays ?? []) as StoreDeliveryDay[]).filter((d) => d.weekday === weekday).map((d) => d.store_id)
@@ -138,12 +142,19 @@ export default async function OrdensPorDiaPage() {
   const storeNameById = Object.fromEntries((allStoresForMissing ?? []).map((s) => [s.id, s.name]));
 
   const missingByDate = new Map<string, string[]>();
-  for (const date of deliveryDates) {
+  for (const date of checkDates) {
     const scheduled = scheduledStoreIdsByDate.get(date) ?? new Set<string>();
     const reported = reportedStoreIdsByDate.get(date) ?? new Set<string>();
     const missing = [...scheduled].filter((id) => !reported.has(id)).map((id) => storeNameById[id] ?? "?");
     if (missing.length) missingByDate.set(date, missing.sort());
   }
+
+  // only give tomorrow its own section if there's actually something expected for it
+  // (an order already, or at least one store scheduled) — otherwise there's nothing to
+  // warn about and it would just be an empty section for a day with nothing due
+  const showTomorrowSection =
+    orderDates.includes(tomorrowISO) || (scheduledStoreIdsByDate.get(tomorrowISO)?.size ?? 0) > 0;
+  const renderDates = (showTomorrowSection ? [...new Set([...orderDates, tomorrowISO])] : orderDates).sort();
 
   return (
     <div className="space-y-6">
@@ -184,11 +195,13 @@ export default async function OrdensPorDiaPage() {
         </>
       )}
 
-      {dateEntries.length === 0 && (
+      {renderDates.length === 0 && (
         <p className="text-sm text-neutral-500">Nenhuma ordem automática em aberto no momento.</p>
       )}
 
-      {dateEntries.map(([deliveryDate, bySector]) => (
+      {renderDates.map((deliveryDate) => {
+        const bySector = tree.get(deliveryDate);
+        return (
         <div key={deliveryDate} className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
@@ -200,20 +213,22 @@ export default async function OrdensPorDiaPage() {
                 Entrega: {WEEKDAY_LABELS[weekdayOfISODate(deliveryDate)]}, {formatBrDate(deliveryDate)}
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              <Link
-                href={`/pedidos/dia/imprimir?date=${deliveryDate}`}
-                className="text-sm font-medium text-orange-700 hover:text-orange-800"
-              >
-                Imprimir
-              </Link>
-              <Link
-                href={`/pedidos/dia/imprimir-romaneio?date=${deliveryDate}`}
-                className="text-sm font-medium text-orange-700 hover:text-orange-800"
-              >
-                Imprimir romaneio de entrega
-              </Link>
-            </div>
+            {bySector && (
+              <div className="flex items-center gap-3">
+                <Link
+                  href={`/pedidos/dia/imprimir?date=${deliveryDate}`}
+                  className="text-sm font-medium text-orange-700 hover:text-orange-800"
+                >
+                  Imprimir
+                </Link>
+                <Link
+                  href={`/pedidos/dia/imprimir-romaneio?date=${deliveryDate}`}
+                  className="text-sm font-medium text-orange-700 hover:text-orange-800"
+                >
+                  Imprimir romaneio de entrega
+                </Link>
+              </div>
+            )}
           </div>
 
           {missingByDate.get(deliveryDate) && (
@@ -223,6 +238,9 @@ export default async function OrdensPorDiaPage() {
             </div>
           )}
 
+          {!bySector ? (
+            <p className="text-sm text-neutral-500">Nenhum pedido gerado ainda para esta entrega.</p>
+          ) : (
           <div className="grid gap-4 lg:grid-cols-2">
             {[...bySector.entries()].map(([sectorId, sectorOrders]) => {
               const maxVersion = sectorOrders.reduce((max, o) => Math.max(max, o.current_version ?? 1), 1);
@@ -319,8 +337,10 @@ export default async function OrdensPorDiaPage() {
               );
             })}
           </div>
+          )}
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
