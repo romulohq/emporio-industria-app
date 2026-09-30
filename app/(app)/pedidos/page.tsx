@@ -1,55 +1,113 @@
-import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/get-session";
-import { Button } from "@/components/ui/button";
-import { OrderTable } from "@/components/orders/order-table";
 import { PedidosTabs } from "@/components/orders/pedidos-tabs";
-import { UnitFilter } from "@/components/orders/unit-filter";
-import type { Product, ProductionOrder, ProductionUnit, Sector } from "@/lib/types/database.types";
+import { getTodaySendMonitor, type SendMonitorStatus } from "@/lib/orders/send-monitor";
+import { formatBrDate } from "@/lib/dates";
+import { WEEKDAY_LABELS, formatTime } from "@/lib/format/labels";
 
-export default async function PedidosPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ unit?: string }>;
-}) {
+const STATUS_CONFIG: Record<SendMonitorStatus, { dot: string; label: (e: { deadlineTime: string; submittedAt: string | null }) => string; card: string }> = {
+  on_time: {
+    dot: "bg-green-500",
+    label: (e) => `Enviado às ${formatTime(e.submittedAt!)}`,
+    card: "border-neutral-200 bg-white",
+  },
+  late: {
+    dot: "bg-amber-500",
+    label: (e) => `Enviado atrasado, às ${formatTime(e.submittedAt!)}`,
+    card: "border-amber-200 bg-amber-50",
+  },
+  pending: {
+    dot: "bg-neutral-300",
+    label: (e) => `Ainda não enviou — prazo até ${e.deadlineTime}`,
+    card: "border-neutral-200 bg-white",
+  },
+  overdue: {
+    dot: "bg-red-500",
+    label: (e) => `Ainda não enviou — prazo era ${e.deadlineTime}`,
+    card: "border-red-200 bg-red-50",
+  },
+};
+
+export default async function PedidosPage() {
   const { profile } = await requireUser();
-  const { unit: unitParam } = await searchParams;
-  const supabase = await createClient();
+  const entries = await getTodaySendMonitor();
 
-  const [{ data: orders }, { data: products }, { data: sectors }, { data: units }] =
-    await Promise.all([
-      supabase.from("production_orders").select("*").order("created_at", { ascending: false }),
-      supabase.from("products").select("*"),
-      supabase.from("sectors").select("*"),
-      supabase.from("production_units").select("*").order("slug"),
-    ]);
+  const counts = {
+    on_time: entries.filter((e) => e.status === "on_time").length,
+    late: entries.filter((e) => e.status === "late").length,
+    pending: entries.filter((e) => e.status === "pending").length,
+    overdue: entries.filter((e) => e.status === "overdue").length,
+  };
 
-  const productsById = Object.fromEntries(((products ?? []) as Product[]).map((p) => [p.id, p]));
-  const sectorsById = Object.fromEntries(((sectors ?? []) as Sector[]).map((s) => [s.id, s]));
-  const unitsList = (units ?? []) as ProductionUnit[];
-
-  const activeUnitSlug = unitParam ?? "rui-barbosa";
-  const activeUnit = unitsList.find((u) => u.slug === activeUnitSlug);
-
-  const filteredOrders = ((orders ?? []) as ProductionOrder[]).filter((order) => {
-    const sector = sectorsById[order.sector_id];
-    return sector && activeUnit && sector.unit_id === activeUnit.id;
-  });
+  const groups = new Map<string, typeof entries>();
+  for (const entry of entries) {
+    const list = groups.get(entry.routeName) ?? [];
+    list.push(entry);
+    groups.set(entry.routeName, list);
+  }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-neutral-900">Pedidos</h1>
-        <Link href="/pedidos/novo">
-          <Button>Nova ordem</Button>
-        </Link>
-      </div>
+      <h1 className="text-xl font-semibold text-neutral-900">Pedidos</h1>
 
       <PedidosTabs isAdmin={profile.is_admin} />
 
-      {unitsList.length > 0 && <UnitFilter units={unitsList} active={activeUnitSlug} />}
+      <div>
+        <h2 className="text-lg font-bold text-neutral-900">Envios de hoje</h2>
+        <p className="text-sm text-neutral-500">
+          Lojas cujo prazo de envio de estoque é hoje, para alguma entrega futura.
+        </p>
+      </div>
 
-      <OrderTable orders={filteredOrders} productsById={productsById} sectorsById={sectorsById} />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-lg border border-neutral-200 bg-white p-3">
+          <p className="text-2xl font-extrabold text-green-600">{counts.on_time}</p>
+          <p className="text-xs text-neutral-500">No prazo</p>
+        </div>
+        <div className="rounded-lg border border-neutral-200 bg-white p-3">
+          <p className="text-2xl font-extrabold text-amber-600">{counts.late}</p>
+          <p className="text-xs text-neutral-500">Atrasados</p>
+        </div>
+        <div className="rounded-lg border border-neutral-200 bg-white p-3">
+          <p className="text-2xl font-extrabold text-neutral-500">{counts.pending}</p>
+          <p className="text-xs text-neutral-500">Aguardando</p>
+        </div>
+        <div className="rounded-lg border border-neutral-200 bg-white p-3">
+          <p className="text-2xl font-extrabold text-red-600">{counts.overdue}</p>
+          <p className="text-xs text-neutral-500">Sem enviar (atrasado)</p>
+        </div>
+      </div>
+
+      {entries.length === 0 ? (
+        <p className="text-sm text-neutral-500">Nenhuma loja tem prazo de envio hoje.</p>
+      ) : (
+        <div className="space-y-4">
+          {[...groups.entries()].map(([routeName, storeEntries]) => (
+            <div key={routeName}>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">{routeName}</h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {storeEntries.map((entry) => {
+                  const config = STATUS_CONFIG[entry.status];
+                  return (
+                    <div
+                      key={`${entry.storeId}:${entry.deliveryDate}`}
+                      className={`rounded-lg border p-3 ${config.card}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${config.dot}`} />
+                        <span className="font-semibold text-neutral-900">{entry.storeName}</span>
+                      </div>
+                      <p className="mt-1 text-xs text-neutral-500">
+                        Entrega: {WEEKDAY_LABELS[entry.deliveryWeekday]}, {formatBrDate(entry.deliveryDate)}
+                      </p>
+                      <p className="mt-1 text-sm text-neutral-700">{config.label(entry)}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

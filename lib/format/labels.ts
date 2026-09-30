@@ -79,3 +79,10 @@ export function formatDateTime(value: string) {
     timeZone: "America/Fortaleza",
   }).format(new Date(value));
 }
+
+export function formatTime(value: string | Date) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeStyle: "short",
+    timeZone: "America/Fortaleza",
+  }).format(typeof value === "string" ? new Date(value) : value);
+}
