@@ -228,9 +228,10 @@ export default async function OrdensPorDiaPage() {
               <div className="flex items-center gap-3">
                 <Link
                   href={`/pedidos/dia/imprimir?date=${deliveryDate}`}
-                  className="text-sm font-medium text-orange-700 hover:text-orange-800"
+                  className="flex items-center gap-1 text-sm font-medium text-orange-700 hover:text-orange-800"
                 >
-                  Imprimir
+                  <Printer className="h-4 w-4" />
+                  Imprimir todas
                 </Link>
                 <Link
                   href={`/pedidos/dia/imprimir-romaneio?date=${deliveryDate}`}
@@ -284,14 +285,6 @@ export default async function OrdensPorDiaPage() {
                     )}
                   </span>
                   <div className="flex flex-wrap items-center gap-3">
-                    <Link
-                      href={`/pedidos/dia/imprimir-setor?date=${deliveryDate}&sector=${sectorId}`}
-                      className="flex items-center gap-1 text-xs font-medium text-orange-700 hover:text-orange-800"
-                      title={`Ordem completa — ${sectorsById[sectorId]?.name}`}
-                    >
-                      <Printer className="h-3.5 w-3.5" />
-                      Ordem completa
-                    </Link>
                     <Link
                       href={`/pedidos/dia/imprimir-colaboradores?date=${deliveryDate}&sector=${sectorId}`}
                       className="flex items-center gap-1 text-xs font-medium text-orange-700 hover:text-orange-800"
