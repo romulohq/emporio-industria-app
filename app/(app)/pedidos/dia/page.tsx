@@ -8,11 +8,10 @@ import { PedidosTabs } from "@/components/orders/pedidos-tabs";
 import { ContributionMenu, type ContributionHistoryItem } from "@/components/orders/contribution-menu";
 import { LateReportGroupCard } from "@/components/orders/late-report-group-card";
 import { LateReportsPopup } from "@/components/orders/late-reports-popup";
-import { updateOrderStatus } from "@/app/(app)/pedidos/actions";
 import { generateTomorrowOrders } from "./actions";
 import { getUndecidedLateReports, groupLateReports } from "@/lib/orders/late-reports";
 import { weekdayOfISODate, formatBrDate, fortalezaDateISO, addDaysISO } from "@/lib/dates";
-import { STATUS_LABELS, STATUS_ORDER, WEEKDAY_LABELS, formatQuantity } from "@/lib/format/labels";
+import { WEEKDAY_LABELS, formatQuantity } from "@/lib/format/labels";
 import type {
   Product,
   ProductionOrder,
@@ -338,26 +337,6 @@ export default async function OrdensPorDiaPage() {
                         <div className="mt-1 flex items-center justify-end">
                           <StatusBadge status={order.status} />
                         </div>
-                        <form action={updateOrderStatus} className="mt-2 flex items-center gap-2">
-                          <input type="hidden" name="order_id" value={order.id} />
-                          <select
-                            name="status"
-                            defaultValue={order.status}
-                            className="rounded-md border border-neutral-300 px-2 py-1 text-xs"
-                          >
-                            {STATUS_ORDER.map((status) => (
-                              <option key={status} value={status}>
-                                {STATUS_LABELS[status]}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            type="submit"
-                            className="rounded-md bg-orange-600 px-2 py-1 text-xs text-white hover:bg-orange-700"
-                          >
-                            Aplicar
-                          </button>
-                        </form>
                       </div>
                     );
                   })}
