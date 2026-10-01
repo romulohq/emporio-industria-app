@@ -4,7 +4,9 @@ import { getTodaySendMonitor, type SendMonitorStatus } from "@/lib/orders/send-m
 import { formatBrDate } from "@/lib/dates";
 import { WEEKDAY_LABELS, formatTime } from "@/lib/format/labels";
 
-const STATUS_CONFIG: Record<SendMonitorStatus, { dot: string; label: (e: { deadlineTime: string; submittedAt: string | null }) => string; card: string }> = {
+type MonitorLabelInput = { deadlineTime: string; submittedAt: string | null; carriedOver: boolean };
+
+const STATUS_CONFIG: Record<SendMonitorStatus, { dot: string; label: (e: MonitorLabelInput) => string; card: string }> = {
   on_time: {
     dot: "bg-green-500",
     label: (e) => `Enviado às ${formatTime(e.submittedAt!)}`,
@@ -12,7 +14,10 @@ const STATUS_CONFIG: Record<SendMonitorStatus, { dot: string; label: (e: { deadl
   },
   late: {
     dot: "bg-amber-500",
-    label: (e) => `Enviado atrasado, às ${formatTime(e.submittedAt!)}`,
+    label: (e) =>
+      e.carriedOver
+        ? `Enviado atrasado (de ontem), às ${formatTime(e.submittedAt!)}`
+        : `Enviado atrasado, às ${formatTime(e.submittedAt!)}`,
     card: "border-amber-200 bg-amber-50",
   },
   pending: {
@@ -22,7 +27,10 @@ const STATUS_CONFIG: Record<SendMonitorStatus, { dot: string; label: (e: { deadl
   },
   overdue: {
     dot: "bg-red-500",
-    label: (e) => `Ainda não enviou — prazo era ${e.deadlineTime}`,
+    label: (e) =>
+      e.carriedOver
+        ? `Ainda não enviou — prazo era ontem às ${e.deadlineTime}`
+        : `Ainda não enviou — prazo era ${e.deadlineTime}`,
     card: "border-red-200 bg-red-50",
   },
 };
@@ -38,13 +46,6 @@ export default async function PedidosPage() {
     overdue: entries.filter((e) => e.status === "overdue").length,
   };
 
-  const groups = new Map<string, typeof entries>();
-  for (const entry of entries) {
-    const list = groups.get(entry.routeName) ?? [];
-    list.push(entry);
-    groups.set(entry.routeName, list);
-  }
-
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold text-neutral-900">Pedidos</h1>
@@ -54,7 +55,8 @@ export default async function PedidosPage() {
       <div>
         <h2 className="text-lg font-bold text-neutral-900">Envios de hoje</h2>
         <p className="text-sm text-neutral-500">
-          Lojas cujo prazo de envio de estoque é hoje, para alguma entrega futura.
+          Lojas cujo prazo de envio de estoque é hoje, para alguma entrega futura — mais quem ficou
+          atrasado ontem e ainda não resolveu.
         </p>
       </div>
 
@@ -80,32 +82,22 @@ export default async function PedidosPage() {
       {entries.length === 0 ? (
         <p className="text-sm text-neutral-500">Nenhuma loja tem prazo de envio hoje.</p>
       ) : (
-        <div className="space-y-4">
-          {[...groups.entries()].map(([routeName, storeEntries]) => (
-            <div key={routeName}>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">{routeName}</h3>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {storeEntries.map((entry) => {
-                  const config = STATUS_CONFIG[entry.status];
-                  return (
-                    <div
-                      key={`${entry.storeId}:${entry.deliveryDate}`}
-                      className={`rounded-lg border p-3 ${config.card}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${config.dot}`} />
-                        <span className="font-semibold text-neutral-900">{entry.storeName}</span>
-                      </div>
-                      <p className="mt-1 text-xs text-neutral-500">
-                        Entrega: {WEEKDAY_LABELS[entry.deliveryWeekday]}, {formatBrDate(entry.deliveryDate)}
-                      </p>
-                      <p className="mt-1 text-sm text-neutral-700">{config.label(entry)}</p>
-                    </div>
-                  );
-                })}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {entries.map((entry) => {
+            const config = STATUS_CONFIG[entry.status];
+            return (
+              <div key={`${entry.storeId}:${entry.deliveryDate}`} className={`rounded-lg border p-3 ${config.card}`}>
+                <div className="flex items-center gap-2">
+                  <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${config.dot}`} />
+                  <span className="font-semibold text-neutral-900">{entry.storeName}</span>
+                </div>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Entrega: {WEEKDAY_LABELS[entry.deliveryWeekday]}, {formatBrDate(entry.deliveryDate)}
+                </p>
+                <p className="mt-1 text-sm text-neutral-700">{config.label(entry)}</p>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

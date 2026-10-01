@@ -149,6 +149,18 @@ export default async function OrdensPorDiaPage() {
     if (missing.length) missingByDate.set(date, missing.sort());
   }
 
+  // full set of stores this cycle's order is drawing from, so a human reviewing the
+  // order can immediately see who's considered without having to hunt per-product
+  const consideredByDate = new Map<string, { name: string; reported: boolean }[]>();
+  for (const date of checkDates) {
+    const scheduled = scheduledStoreIdsByDate.get(date) ?? new Set<string>();
+    const reported = reportedStoreIdsByDate.get(date) ?? new Set<string>();
+    const list = [...scheduled]
+      .map((id) => ({ name: storeNameById[id] ?? "?", reported: reported.has(id) }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    consideredByDate.set(date, list);
+  }
+
   // only give tomorrow its own section if there's actually something expected for it
   // (an order already, or at least one store scheduled) — otherwise there's nothing to
   // warn about and it would just be an empty section for a day with nothing due
@@ -230,6 +242,23 @@ export default async function OrdensPorDiaPage() {
               </div>
             )}
           </div>
+
+          {(consideredByDate.get(deliveryDate)?.length ?? 0) > 0 && (
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="font-medium text-neutral-500">Lojas consideradas nesta ordem:</span>
+              {consideredByDate.get(deliveryDate)!.map((store) => (
+                <span
+                  key={store.name}
+                  className="flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2 py-0.5"
+                >
+                  <span
+                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${store.reported ? "bg-green-500" : "bg-neutral-300"}`}
+                  />
+                  {store.name}
+                </span>
+              ))}
+            </div>
+          )}
 
           {missingByDate.get(deliveryDate) && (
             <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
