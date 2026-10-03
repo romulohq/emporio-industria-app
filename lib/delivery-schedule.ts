@@ -1,57 +1,77 @@
-import { dateToFortalezaISO, weekdayOfISODate, addDaysISO, zonedInstant } from "@/lib/dates";
+import { addDaysISO, dateToFortalezaISO, weekdayOfISODate, zonedInstant } from "@/lib/dates";
 import { WEEKDAY_ORDER } from "@/lib/format/labels";
 import type { Weekday } from "@/lib/types/database.types";
 
-export const DEFAULT_DEADLINE_TIME = "23:59";
-export const DEFAULT_SEND_GAP_DAYS = 2;
+/**
+ * Single source of truth for the delivery / production / stock-report timing
+ * rule. Everything is derived from the delivery date D:
+ *
+ *   production day = D-1, except there is no production on Sunday, so a
+ *                    Monday delivery is produced on Saturday morning (D-2)
+ *   send deadline  = the day before the production day, at 23:59
+ *                    (America/Fortaleza, never UTC)
+ *   order generated = on the production day
+ */
+export const SEND_DEADLINE_TIME = "23:59";
+
+const NO_PRODUCTION_WEEKDAY: Weekday = "sunday";
 
 function weekdayIndex(weekday: Weekday): number {
   return WEEKDAY_ORDER.indexOf(weekday);
 }
 
-/** The store's default send weekday for a delivery weekday: 2 days before. */
-export function defaultSendWeekday(deliveryWeekday: Weekday): Weekday {
-  const index = (weekdayIndex(deliveryWeekday) - DEFAULT_SEND_GAP_DAYS + 7) % 7;
+/** The day the order is generated and the production happens for a delivery date. */
+export function productionDateForDelivery(deliveryDateISO: string): string {
+  const dayBefore = addDaysISO(deliveryDateISO, -1);
+  return weekdayOfISODate(dayBefore) === NO_PRODUCTION_WEEKDAY ? addDaysISO(dayBefore, -1) : dayBefore;
+}
+
+/** The last day (until 23:59) a store may send its stock report for a delivery date. */
+export function sendDeadlineDateForDelivery(deliveryDateISO: string): string {
+  return addDaysISO(productionDateForDelivery(deliveryDateISO), -1);
+}
+
+/** The exact submission deadline instant (23:59 America/Fortaleza) for a delivery date. */
+export function sendDeadlineForDelivery(deliveryDateISO: string): Date {
+  return zonedInstant(sendDeadlineDateForDelivery(deliveryDateISO), SEND_DEADLINE_TIME);
+}
+
+/** Weekday-level view of the same rule, for screens that only know a store's delivery weekday. */
+export function productionWeekdayForDelivery(deliveryWeekday: Weekday): Weekday {
+  let index = (weekdayIndex(deliveryWeekday) - 1 + 7) % 7;
+  if (WEEKDAY_ORDER[index] === NO_PRODUCTION_WEEKDAY) index = (index - 1 + 7) % 7;
   return WEEKDAY_ORDER[index];
 }
 
-/** Next occurrence of `weekday` that is strictly after today — a submission is
- * always prep for a future delivery, never today's own (already in motion). */
-export function nextOccurrenceOnOrAfter(todayISO: string, weekday: Weekday): string {
-  const todayWeekday = weekdayOfISODate(todayISO);
-  let diff = (weekdayIndex(weekday) - weekdayIndex(todayWeekday) + 7) % 7;
-  if (diff < 1) diff += 7;
+export function sendWeekdayForDelivery(deliveryWeekday: Weekday): Weekday {
+  const productionIndex = weekdayIndex(productionWeekdayForDelivery(deliveryWeekday));
+  return WEEKDAY_ORDER[(productionIndex - 1 + 7) % 7];
+}
+
+/** Delivery dates whose orders are generated (and produced) on `productionDateISO`. */
+export function deliveryDatesProducedOn(productionDateISO: string): string[] {
+  return [1, 2]
+    .map((offset) => addDaysISO(productionDateISO, offset))
+    .filter((deliveryDate) => productionDateForDelivery(deliveryDate) === productionDateISO);
+}
+
+/** Future deliveries whose production day has already started (today or earlier). */
+export function deliveryDatesInProduction(todayISO: string): string[] {
+  return [1, 2]
+    .map((offset) => addDaysISO(todayISO, offset))
+    .filter((deliveryDate) => productionDateForDelivery(deliveryDate) <= todayISO);
+}
+
+/** Next date, strictly after today, that falls on `weekday` — a report is always prep for a future delivery. */
+export function nextDeliveryDate(todayISO: string, weekday: Weekday): string {
+  const diff = (weekdayIndex(weekday) - weekdayIndex(weekdayOfISODate(todayISO)) + 7) % 7 || 7;
   return addDaysISO(todayISO, diff);
 }
-
-/** The send date aligned to a delivery date, given the configured send weekday. */
-function alignedSendDate(deliveryDateISO: string, sendWeekday: Weekday): string {
-  const deliveryWeekday = weekdayOfISODate(deliveryDateISO);
-  const gap = (weekdayIndex(deliveryWeekday) - weekdayIndex(sendWeekday) + 7) % 7;
-  return addDaysISO(deliveryDateISO, -gap);
-}
-
-/**
- * The submission deadline instant for a KNOWN delivery date (already decided
- * — e.g. a report's own store_stock_reports.delivery_date), given that
- * store's send weekday/time for the matching delivery weekday. Unlike
- * computeCurrentCycle, this doesn't pick among multiple configs or roll
- * forward — the cycle is already fixed, we just need its deadline.
- */
-export function deadlineForDeliveryDate(deliveryDateISO: string, sendWeekday: Weekday, deadlineTime: string): Date {
-  const sendDate = alignedSendDate(deliveryDateISO, sendWeekday);
-  return zonedInstant(sendDate, deadlineTime);
-}
-
-export type DeliveryDeadlineConfig = {
-  weekday: Weekday;
-  sendWeekday: Weekday;
-  deadlineTime: string;
-};
 
 export type CurrentCycle = {
   deliveryDate: string;
   deliveryWeekday: Weekday;
+  productionDate: string;
   sendDate: string;
   sendWeekday: Weekday;
   deadlineTime: string;
@@ -59,42 +79,27 @@ export type CurrentCycle = {
 };
 
 /**
- * Picks the store's currently-open delivery cycle: among all configured
- * delivery weekdays, the one whose delivery date is soonest (today or
- * later). A submission still targets that same cycle even if its deadline
- * has already passed — it's simply late, not attributed to next week's
- * occurrence instead (a late report for Friday's delivery, submitted
- * Thursday morning, still counts for THIS Friday). Returns null if the
+ * Picks the store's currently-open delivery cycle: among its delivery
+ * weekdays, the one whose delivery date is soonest (strictly after today). A
+ * submission still targets that cycle even if its deadline has passed — it is
+ * simply late, not attributed to next week's occurrence. Returns null if the
  * store has no delivery days configured.
  */
-export function computeCurrentCycle(
-  configs: DeliveryDeadlineConfig[],
-  now: Date = new Date()
-): CurrentCycle | null {
+export function computeCurrentCycle(deliveryWeekdays: Weekday[], now: Date = new Date()): CurrentCycle | null {
   const todayISO = dateToFortalezaISO(now);
-  let best: CurrentCycle | null = null;
+  const deliveryDates = deliveryWeekdays.map((weekday) => nextDeliveryDate(todayISO, weekday));
+  if (deliveryDates.length === 0) return null;
 
-  for (const config of configs) {
-    const deliveryDate = nextOccurrenceOnOrAfter(todayISO, config.weekday);
-    const sendDate = alignedSendDate(deliveryDate, config.sendWeekday);
-    const deadline = zonedInstant(sendDate, config.deadlineTime);
+  const deliveryDate = deliveryDates.sort()[0];
+  const sendDate = sendDeadlineDateForDelivery(deliveryDate);
 
-    if (!best || deliveryDate < best.deliveryDate) {
-      best = {
-        deliveryDate,
-        deliveryWeekday: config.weekday,
-        sendDate,
-        sendWeekday: config.sendWeekday,
-        deadlineTime: config.deadlineTime,
-        deadline,
-      };
-    }
-  }
-
-  return best;
-}
-
-/** Whether `submittedAt` came in after the cycle's own deadline. */
-export function isLateForCycle(cycle: CurrentCycle, submittedAt: Date): boolean {
-  return submittedAt.getTime() > cycle.deadline.getTime();
+  return {
+    deliveryDate,
+    deliveryWeekday: weekdayOfISODate(deliveryDate),
+    productionDate: productionDateForDelivery(deliveryDate),
+    sendDate,
+    sendWeekday: weekdayOfISODate(sendDate),
+    deadlineTime: SEND_DEADLINE_TIME,
+    deadline: sendDeadlineForDelivery(deliveryDate),
+  };
 }

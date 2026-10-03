@@ -8,9 +8,10 @@ import { PedidosTabs } from "@/components/orders/pedidos-tabs";
 import { ContributionMenu, type ContributionHistoryItem } from "@/components/orders/contribution-menu";
 import { LateReportGroupCard } from "@/components/orders/late-report-group-card";
 import { LateReportsPopup } from "@/components/orders/late-reports-popup";
-import { generateTomorrowOrders } from "./actions";
+import { generateTodayProductionOrders } from "./actions";
 import { getUndecidedLateReports, groupLateReports } from "@/lib/orders/late-reports";
-import { weekdayOfISODate, formatBrDate, fortalezaDateISO, addDaysISO } from "@/lib/dates";
+import { deliveryDatesInProduction, productionDateForDelivery } from "@/lib/delivery-schedule";
+import { weekdayOfISODate, formatBrDate, fortalezaDateISO } from "@/lib/dates";
 import { WEEKDAY_LABELS, formatQuantity } from "@/lib/format/labels";
 import type {
   Product,
@@ -99,12 +100,12 @@ export default async function OrdensPorDiaPage() {
 
   const dateEntries = [...tree.entries()].sort(([a], [b]) => (a < b ? -1 : 1));
 
-  // tomorrow should always have an order by now (generated D-1 morning) — check it for
+  // deliveries whose production day has started should already have an order — check them for
   // missing stores even when nothing was generated yet, so a day with zero reports isn't
   // simply invisible just because there's no order to hang the warning on
-  const tomorrowISO = fortalezaDateISO(1);
+  const inProductionDates = deliveryDatesInProduction(todayISO);
   const orderDates = dateEntries.map(([d]) => d);
-  const checkDates = [...new Set([...orderDates, tomorrowISO])];
+  const checkDates = [...new Set([...orderDates, ...inProductionDates])];
   const weekdaysNeeded = [...new Set(checkDates.map((d) => weekdayOfISODate(d)))];
 
   const [{ data: allDeliveryDays }, { data: cycleReports }] = await Promise.all([
@@ -160,12 +161,13 @@ export default async function OrdensPorDiaPage() {
     consideredByDate.set(date, list);
   }
 
-  // only give tomorrow its own section if there's actually something expected for it
-  // (an order already, or at least one store scheduled) — otherwise there's nothing to
+  // only give an in-production delivery its own section if there's actually something expected
+  // for it (an order already, or at least one store scheduled) — otherwise there's nothing to
   // warn about and it would just be an empty section for a day with nothing due
-  const showTomorrowSection =
-    orderDates.includes(tomorrowISO) || (scheduledStoreIdsByDate.get(tomorrowISO)?.size ?? 0) > 0;
-  const renderDates = (showTomorrowSection ? [...new Set([...orderDates, tomorrowISO])] : orderDates).sort();
+  const extraDates = inProductionDates.filter(
+    (d) => !orderDates.includes(d) && (scheduledStoreIdsByDate.get(d)?.size ?? 0) > 0
+  );
+  const renderDates = [...new Set([...orderDates, ...extraDates])].sort();
 
   return (
     <div className="space-y-6">
@@ -178,7 +180,7 @@ export default async function OrdensPorDiaPage() {
           </p>
         </div>
         {profile.is_admin && (
-          <form action={generateTomorrowOrders}>
+          <form action={generateTodayProductionOrders}>
             <Button type="submit" variant="secondary">
               Gerar ordem de produção
             </Button>
@@ -217,8 +219,8 @@ export default async function OrdensPorDiaPage() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-bold text-neutral-900">
-                Ordem de produção de hoje — {WEEKDAY_LABELS[weekdayOfISODate(addDaysISO(deliveryDate, -1))]},{" "}
-                {formatBrDate(addDaysISO(deliveryDate, -1))}
+                Ordem de produção — {WEEKDAY_LABELS[weekdayOfISODate(productionDateForDelivery(deliveryDate))]},{" "}
+                {formatBrDate(productionDateForDelivery(deliveryDate))}
               </h2>
               <p className="text-sm text-neutral-500">
                 Entrega: {WEEKDAY_LABELS[weekdayOfISODate(deliveryDate)]}, {formatBrDate(deliveryDate)}

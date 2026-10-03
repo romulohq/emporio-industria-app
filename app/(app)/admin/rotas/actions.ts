@@ -7,7 +7,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/get-session";
 import { createRouteSchema } from "@/lib/validations/route";
 import { scheduleSchema, applyRouteImpactSchema } from "@/lib/validations/delivery-schedule";
-import { defaultSendWeekday, DEFAULT_DEADLINE_TIME } from "@/lib/delivery-schedule";
 import { computeRouteScheduleImpact } from "@/lib/orders/route-schedule-impact";
 import { regenerateSectorDayOrder } from "@/lib/orders/regenerate-day-order";
 import { slugify } from "@/lib/format/slugify";
@@ -68,31 +67,22 @@ export async function saveUnitSchedule(formData: FormData) {
   const storeIds = (stores ?? []).map((s) => s.id);
   if (storeIds.length === 0) return;
 
-  // this grid doesn't edit the deadline — preserve any per-store custom one
-  // already set via Lojas → "Dias de entrega e prazos" instead of resetting it
   const { data: existingRows } = await supabase
     .from("store_delivery_days")
-    .select("*")
+    .select("store_id, weekday")
     .in("store_id", storeIds);
   const existingByKey = new Map(
-    ((existingRows ?? []) as StoreDeliveryDay[]).map((d) => [`${d.store_id}:${d.weekday}`, d])
+    ((existingRows ?? []) as Pick<StoreDeliveryDay, "store_id" | "weekday">[]).map((d) => [
+      `${d.store_id}:${d.weekday}`,
+      d,
+    ])
   );
 
-  const entriesWithDeadline = parsed.data.map((entry) => {
-    const existing = existingByKey.get(`${entry.store_id}:${entry.weekday}`);
-    return {
-      ...entry,
-      send_weekday: existing?.is_custom ? existing.send_weekday : defaultSendWeekday(entry.weekday),
-      deadline_time: existing?.is_custom ? existing.deadline_time : DEFAULT_DEADLINE_TIME,
-      is_custom: existing?.is_custom ?? false,
-    };
-  });
-
   // full replace, but upsert-first: if the insert fails, nothing already saved is lost
-  if (entriesWithDeadline.length > 0) {
+  if (parsed.data.length > 0) {
     const { error } = await supabase
       .from("store_delivery_days")
-      .upsert(entriesWithDeadline, { onConflict: "store_id,weekday" });
+      .upsert(parsed.data, { onConflict: "store_id,weekday" });
     if (error) return;
   }
 

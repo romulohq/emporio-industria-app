@@ -82,9 +82,6 @@ export type StoreDeliveryDay = {
   weekday: Weekday;
   period: DeliveryPeriod;
   position: number;
-  send_weekday: Weekday;
-  deadline_time: string;
-  is_custom: boolean;
 };
 
 export type OrderRegeneration = {

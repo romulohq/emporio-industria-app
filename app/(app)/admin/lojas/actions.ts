@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth/get-session";
 import { createStoreSchema, updateStoreSchema } from "@/lib/validations/store";
 import { storeProductMinRowSchema } from "@/lib/validations/store-product-min";
-import { deadlineScheduleSchema } from "@/lib/validations/delivery-schedule";
+import { storeWeekdaysSchema } from "@/lib/validations/delivery-schedule";
 
 export type FormState = { error?: string } | undefined;
 
@@ -78,40 +78,35 @@ export async function regenerateStoreToken(formData: FormData) {
 export async function saveStoreDeliverySchedule(formData: FormData) {
   await requireAdmin();
 
-  let entriesRaw: unknown;
+  let weekdaysRaw: unknown;
   try {
-    entriesRaw = JSON.parse(String(formData.get("entries") ?? "[]"));
+    weekdaysRaw = JSON.parse(String(formData.get("weekdays") ?? "[]"));
   } catch {
     return;
   }
 
-  const parsed = deadlineScheduleSchema.safeParse({
+  const parsed = storeWeekdaysSchema.safeParse({
     store_id: formData.get("store_id"),
-    entries: entriesRaw,
+    weekdays: weekdaysRaw,
   });
   if (!parsed.success) return;
 
-  const { store_id, entries } = parsed.data;
+  const { store_id, weekdays } = parsed.data;
   const supabase = await createClient();
-  const enabledWeekdays = entries.map((e) => e.weekday);
 
   await supabase
     .from("store_delivery_days")
     .delete()
     .eq("store_id", store_id)
-    .not("weekday", "in", `(${enabledWeekdays.length ? enabledWeekdays.join(",") : "''"})`);
+    .not("weekday", "in", `(${weekdays.length ? weekdays.join(",") : "''"})`);
 
-  if (entries.length) {
-    await supabase.from("store_delivery_days").upsert(
-      entries.map((e) => ({
-        store_id,
-        weekday: e.weekday,
-        send_weekday: e.send_weekday,
-        deadline_time: e.deadline_time,
-        is_custom: e.is_custom,
-      })),
-      { onConflict: "store_id,weekday" }
-    );
+  if (weekdays.length) {
+    await supabase
+      .from("store_delivery_days")
+      .upsert(
+        weekdays.map((weekday) => ({ store_id, weekday })),
+        { onConflict: "store_id,weekday", ignoreDuplicates: true }
+      );
   }
 
   revalidatePath(`/admin/lojas/${store_id}`);

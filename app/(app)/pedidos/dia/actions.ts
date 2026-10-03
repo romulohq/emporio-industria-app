@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { generateDayOrders } from "@/lib/orders/generate-day-orders";
 import { regenerateSectorDayOrder } from "@/lib/orders/regenerate-day-order";
 import { fortalezaDateISO } from "@/lib/dates";
+import { deliveryDatesProducedOn } from "@/lib/delivery-schedule";
 import {
   manualContributionSchema,
   clearContributionSchema,
@@ -20,13 +21,30 @@ function revalidateOrdersPaths() {
   revalidatePath("/pedidos/dia");
 }
 
-/** Generates tomorrow's order (freezing it from further automatic changes) and opens the print view. */
-export async function generateTomorrowOrders() {
+/**
+ * Generates today's production orders — for every delivery whose production
+ * day is today (freezing them from further automatic changes) — and opens the
+ * print view for the first of them. Does nothing on a day with no production.
+ */
+export async function generateTodayProductionOrders() {
   await requireAdmin();
-  const deliveryDate = fortalezaDateISO(1);
-  await generateDayOrders(deliveryDate);
+  const deliveryDates = deliveryDatesProducedOn(fortalezaDateISO());
+  for (const deliveryDate of deliveryDates) {
+    await generateDayOrders(deliveryDate);
+  }
   revalidateOrdersPaths();
-  redirect(`/pedidos/dia/imprimir?date=${deliveryDate}`);
+
+  const { data: generated } = deliveryDates.length
+    ? await createAdminClient()
+        .from("production_orders")
+        .select("delivery_date")
+        .eq("source", "auto_route")
+        .in("delivery_date", deliveryDates)
+        .order("delivery_date", { ascending: true })
+        .limit(1)
+    : { data: [] };
+  const printDate = generated?.[0]?.delivery_date;
+  redirect(printDate ? `/pedidos/dia/imprimir?date=${printDate}` : "/pedidos/dia");
 }
 
 /** Pins a store's contribution to a specific past report instead of its latest one. */

@@ -21,19 +21,10 @@ export const scheduleSchema = z.array(scheduleEntrySchema);
 
 export type ScheduleEntry = z.infer<typeof scheduleEntrySchema>;
 
-export const deadlineEntrySchema = z.object({
-  weekday: weekdaySchema,
-  send_weekday: weekdaySchema,
-  deadline_time: z.string().regex(/^\d{2}:\d{2}$/, "Horário inválido"),
-  is_custom: z.boolean(),
-});
-
-export const deadlineScheduleSchema = z.object({
+export const storeWeekdaysSchema = z.object({
   store_id: z.string().uuid(),
-  entries: z.array(deadlineEntrySchema),
+  weekdays: z.array(weekdaySchema),
 });
-
-export type DeadlineEntry = z.infer<typeof deadlineEntrySchema>;
 
 export const routeImpactGroupSchema = z.object({
   sector_id: z.string().uuid(),

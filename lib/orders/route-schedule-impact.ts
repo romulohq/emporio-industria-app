@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { diffDayOrders, type DayOrderDiff } from "@/lib/orders/diff-day-orders";
-import { nextOccurrenceOnOrAfter } from "@/lib/delivery-schedule";
+import { nextDeliveryDate } from "@/lib/delivery-schedule";
 import { fortalezaDateISO } from "@/lib/dates";
 import type { Weekday } from "@/lib/types/database.types";
 
@@ -24,7 +24,7 @@ export async function computeRouteScheduleImpact(
   const admin = createAdminClient();
   const todayISO = fortalezaDateISO();
 
-  const dates = [...new Set([...changedWeekdays].map((w) => nextOccurrenceOnOrAfter(todayISO, w)))];
+  const dates = [...new Set([...changedWeekdays].map((w) => nextDeliveryDate(todayISO, w)))];
 
   const groups: { sectorId: string; deliveryDate: string }[] = [];
   for (const deliveryDate of dates) {

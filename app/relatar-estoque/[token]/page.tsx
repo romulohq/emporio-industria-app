@@ -39,13 +39,7 @@ export default async function RelatarEstoquePage({
     .select("*")
     .eq("store_id", store.id);
 
-  const cycle = computeCurrentCycle(
-    ((deliveryDays ?? []) as StoreDeliveryDay[]).map((d) => ({
-      weekday: d.weekday,
-      sendWeekday: d.send_weekday,
-      deadlineTime: d.deadline_time.slice(0, 5),
-    }))
-  );
+  const cycle = computeCurrentCycle(((deliveryDays ?? []) as StoreDeliveryDay[]).map((d) => d.weekday));
 
   const { data: mins } = await admin
     .from("store_product_mins")
