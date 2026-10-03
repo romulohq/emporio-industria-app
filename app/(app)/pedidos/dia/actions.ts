@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { generateDayOrders } from "@/lib/orders/generate-day-orders";
 import { regenerateSectorDayOrder } from "@/lib/orders/regenerate-day-order";
 import { fortalezaDateISO } from "@/lib/dates";
+import { getUndecidedLateReports, groupLateReports } from "@/lib/orders/late-reports";
 import { deliveryDatesProducedOn } from "@/lib/delivery-schedule";
 import {
   manualContributionSchema,
@@ -22,29 +23,57 @@ function revalidateOrdersPaths() {
 }
 
 /**
- * Generates today's production orders — for every delivery whose production
- * day is today (freezing them from further automatic changes) — and opens the
- * print view for the first of them. Does nothing on a day with no production.
+ * "Atualizar ordem de produção": orders are generated automatically each
+ * production day, so this is how late reports get accepted — every undecided
+ * late report is included by regenerating its sector/day order (versioned,
+ * with the decision recorded). Also generates any of today's orders that
+ * somehow don't exist yet.
  */
-export async function generateTodayProductionOrders() {
-  await requireAdmin();
-  const deliveryDates = deliveryDatesProducedOn(fortalezaDateISO());
-  for (const deliveryDate of deliveryDates) {
-    await generateDayOrders(deliveryDate);
-  }
-  revalidateOrdersPaths();
+export async function updateDayOrders() {
+  const { userId } = await requireAdmin();
+  const supabase = await createClient();
+  const admin = createAdminClient();
 
-  const { data: generated } = deliveryDates.length
-    ? await createAdminClient()
-        .from("production_orders")
-        .select("delivery_date")
-        .eq("source", "auto_route")
-        .in("delivery_date", deliveryDates)
-        .order("delivery_date", { ascending: true })
-        .limit(1)
-    : { data: [] };
-  const printDate = generated?.[0]?.delivery_date;
-  redirect(printDate ? `/pedidos/dia/imprimir?date=${printDate}` : "/pedidos/dia");
+  for (const group of groupLateReports(await getUndecidedLateReports())) {
+    const reportIds = group.items.map((item) => item.reportId);
+    const storeNames = [...new Set(group.items.map((item) => item.storeName))];
+
+    await regenerateSectorDayOrder(
+      group.sectorId,
+      group.deliveryDate,
+      new Set(),
+      `Inclui pedido(s) atrasado(s): ${storeNames.join(", ")}`,
+      userId
+    );
+
+    await supabase.from("late_report_decisions").insert(
+      reportIds.map((report_id) => ({
+        report_id,
+        sector_id: group.sectorId,
+        delivery_date: group.deliveryDate,
+        decision: "regenerated" as const,
+        decided_by: userId,
+      }))
+    );
+    // store_stock_reports has no update RLS policy, so this must go through the admin client
+    await admin.from("store_stock_reports").update({ late_acknowledged: true }).in("id", reportIds);
+  }
+
+  const todayDeliveryDates = deliveryDatesProducedOn(fortalezaDateISO());
+  if (todayDeliveryDates.length) {
+    const { data: existing } = await admin
+      .from("production_orders")
+      .select("delivery_date")
+      .eq("source", "auto_route")
+      .in("delivery_date", todayDeliveryDates);
+    const existingDates = new Set((existing ?? []).map((o) => o.delivery_date as string));
+    for (const deliveryDate of todayDeliveryDates) {
+      if (!existingDates.has(deliveryDate)) await generateDayOrders(deliveryDate);
+    }
+  }
+
+  revalidateOrdersPaths();
+  redirect("/pedidos/dia");
 }
 
 /** Pins a store's contribution to a specific past report instead of its latest one. */

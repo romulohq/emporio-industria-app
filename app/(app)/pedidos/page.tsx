@@ -13,12 +13,12 @@ const STATUS_CONFIG: Record<SendMonitorStatus, { dot: string; label: (e: Monitor
     card: "border-neutral-200 bg-white",
   },
   late: {
-    dot: "bg-amber-500",
+    dot: "bg-violet-500",
     label: (e) =>
       e.carriedOver
         ? `Enviado atrasado (de ontem), às ${formatTime(e.submittedAt!)}`
         : `Enviado atrasado, às ${formatTime(e.submittedAt!)}`,
-    card: "border-amber-200 bg-amber-50",
+    card: "border-violet-200 bg-violet-50",
   },
   pending: {
     dot: "bg-neutral-300",
@@ -26,12 +26,12 @@ const STATUS_CONFIG: Record<SendMonitorStatus, { dot: string; label: (e: Monitor
     card: "border-neutral-200 bg-white",
   },
   overdue: {
-    dot: "bg-red-500",
+    dot: "bg-orange-400",
     label: (e) =>
       e.carriedOver
         ? `Ainda não enviou — prazo era ontem às ${e.deadlineTime}`
         : `Ainda não enviou — prazo era ${e.deadlineTime}`,
-    card: "border-red-200 bg-red-50",
+    card: "border-orange-200 bg-orange-50",
   },
 };
 
@@ -65,11 +65,11 @@ export default async function PedidosPage() {
           <p className="text-xs text-neutral-500">No prazo</p>
         </div>
         <div className="rounded-lg border border-neutral-200 bg-white p-3">
-          <p className="text-2xl font-extrabold text-red-600">{counts.overdue}</p>
-          <p className="text-xs text-neutral-500">Sem enviar (atrasado)</p>
+          <p className="text-2xl font-extrabold text-orange-500">{counts.overdue}</p>
+          <p className="text-xs text-neutral-500">Sem enviar</p>
         </div>
         <div className="rounded-lg border border-neutral-200 bg-white p-3">
-          <p className="text-2xl font-extrabold text-amber-600">{counts.late}</p>
+          <p className="text-2xl font-extrabold text-violet-600">{counts.late}</p>
           <p className="text-xs text-neutral-500">Pedidos enviados atrasados</p>
         </div>
       </div>

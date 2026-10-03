@@ -1,14 +1,12 @@
 import Link from "next/link";
-import { Printer } from "lucide-react";
+import { Printer, RefreshCw } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/get-session";
-import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/orders/status-badge";
 import { PedidosTabs } from "@/components/orders/pedidos-tabs";
 import { ContributionMenu, type ContributionHistoryItem } from "@/components/orders/contribution-menu";
 import { LateReportGroupCard } from "@/components/orders/late-report-group-card";
 import { LateReportsPopup } from "@/components/orders/late-reports-popup";
-import { generateTodayProductionOrders } from "./actions";
+import { updateDayOrders } from "./actions";
 import { getUndecidedLateReports, groupLateReports } from "@/lib/orders/late-reports";
 import {
   deliveryDatesInProduction,
@@ -107,6 +105,7 @@ export default async function OrdensPorDiaPage() {
 
   // admins get a grouped inbox of late reports for stragglers that missed an already-generated order
   const lateGroups = profile.is_admin ? groupLateReports(await getUndecidedLateReports()) : [];
+  const lateCount = new Set(lateGroups.flatMap((group) => group.items.map((item) => `${item.storeId}:${group.deliveryDate}`))).size;
 
   // delivery_date -> sector -> orders
   const tree = new Map<string, Map<string, ProductionOrder[]>>();
@@ -241,10 +240,28 @@ export default async function OrdensPorDiaPage() {
           </p>
         </div>
         {profile.is_admin && (
-          <form action={generateTodayProductionOrders}>
-            <Button type="submit" variant="secondary">
-              Gerar ordem de produção
-            </Button>
+          <form
+            action={updateDayOrders}
+            className="flex shrink-0 items-center gap-3 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5"
+          >
+            <div className="text-xs leading-tight">
+              <p className="font-semibold text-violet-900">
+                {lateCount > 0
+                  ? `${lateCount} pedido${lateCount > 1 ? "s" : ""} atrasado${lateCount > 1 ? "s" : ""}`
+                  : "Nenhum pedido atrasado"}
+              </p>
+              <p className="text-violet-700">
+                {lateCount > 0 ? "aguardando entrar na ordem" : "ordem atualizada"}
+              </p>
+            </div>
+            <button
+              type="submit"
+              disabled={lateCount === 0}
+              className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-violet-600"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Atualizar ordem de produção
+            </button>
           </form>
         )}
       </div>
@@ -403,9 +420,6 @@ export default async function OrdensPorDiaPage() {
                               )}
                             </span>
                           ))}
-                        </div>
-                        <div className="mt-1 flex items-center justify-end">
-                          <StatusBadge status={order.status} />
                         </div>
                       </div>
                     );
