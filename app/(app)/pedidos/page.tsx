@@ -42,7 +42,6 @@ export default async function PedidosPage() {
   const counts = {
     on_time: entries.filter((e) => e.status === "on_time").length,
     late: entries.filter((e) => e.status === "late").length,
-    pending: entries.filter((e) => e.status === "pending").length,
     overdue: entries.filter((e) => e.status === "overdue").length,
   };
 
@@ -60,22 +59,18 @@ export default async function PedidosPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-lg border border-neutral-200 bg-white p-3">
           <p className="text-2xl font-extrabold text-green-600">{counts.on_time}</p>
           <p className="text-xs text-neutral-500">No prazo</p>
         </div>
         <div className="rounded-lg border border-neutral-200 bg-white p-3">
-          <p className="text-2xl font-extrabold text-amber-600">{counts.late}</p>
-          <p className="text-xs text-neutral-500">Atrasados</p>
-        </div>
-        <div className="rounded-lg border border-neutral-200 bg-white p-3">
-          <p className="text-2xl font-extrabold text-neutral-500">{counts.pending}</p>
-          <p className="text-xs text-neutral-500">Aguardando</p>
-        </div>
-        <div className="rounded-lg border border-neutral-200 bg-white p-3">
           <p className="text-2xl font-extrabold text-red-600">{counts.overdue}</p>
           <p className="text-xs text-neutral-500">Sem enviar (atrasado)</p>
+        </div>
+        <div className="rounded-lg border border-neutral-200 bg-white p-3">
+          <p className="text-2xl font-extrabold text-amber-600">{counts.late}</p>
+          <p className="text-xs text-neutral-500">Pedidos enviados atrasados</p>
         </div>
       </div>
 
