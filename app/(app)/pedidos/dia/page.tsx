@@ -10,7 +10,11 @@ import { LateReportGroupCard } from "@/components/orders/late-report-group-card"
 import { LateReportsPopup } from "@/components/orders/late-reports-popup";
 import { generateTodayProductionOrders } from "./actions";
 import { getUndecidedLateReports, groupLateReports } from "@/lib/orders/late-reports";
-import { deliveryDatesInProduction, productionDateForDelivery } from "@/lib/delivery-schedule";
+import {
+  deliveryDatesInProduction,
+  productionDateForDelivery,
+  sendDeadlineForDelivery,
+} from "@/lib/delivery-schedule";
 import { weekdayOfISODate, formatBrDate, fortalezaDateISO, dateToFortalezaISO } from "@/lib/dates";
 import { WEEKDAY_LABELS, formatQuantity } from "@/lib/format/labels";
 import type {
@@ -22,6 +26,14 @@ import type {
   StoreDeliveryDay,
   StoreStockReport,
 } from "@/lib/types/database.types";
+
+const SEND_STATE_DOT = { on_time: "bg-green-500", pending: "bg-orange-400", none: "bg-neutral-300" } as const;
+
+const SEND_STATE_LEGEND = [
+  { state: "on_time", label: "Enviou no prazo" },
+  { state: "pending", label: "Pedido pendente" },
+  { state: "none", label: "Nenhum pedido no sistema" },
+] as const;
 
 export default async function OrdensPorDiaPage() {
   const { profile } = await requireUser();
@@ -122,8 +134,8 @@ export default async function OrdensPorDiaPage() {
       ? supabase.from("store_delivery_days").select("*").in("weekday", weekdaysNeeded)
       : Promise.resolve({ data: [] as StoreDeliveryDay[] }),
     checkDates.length
-      ? supabase.from("store_stock_reports").select("store_id, delivery_date").in("delivery_date", checkDates)
-      : Promise.resolve({ data: [] as { store_id: string; delivery_date: string | null }[] }),
+      ? supabase.from("store_stock_reports").select("store_id, delivery_date, created_at").in("delivery_date", checkDates)
+      : Promise.resolve({ data: [] as { store_id: string; delivery_date: string | null; created_at: string }[] }),
   ]);
 
   const scheduledStoreIdsByDate = new Map<string, Set<string>>();
@@ -136,12 +148,34 @@ export default async function OrdensPorDiaPage() {
   }
 
   const reportedStoreIdsByDate = new Map<string, Set<string>>();
-  for (const r of (cycleReports ?? []) as { store_id: string; delivery_date: string | null }[]) {
+  const onTimeStoreIdsByDate = new Map<string, Set<string>>();
+  for (const r of (cycleReports ?? []) as { store_id: string; delivery_date: string | null; created_at: string }[]) {
     if (!r.delivery_date) continue;
     const set = reportedStoreIdsByDate.get(r.delivery_date) ?? new Set<string>();
     set.add(r.store_id);
     reportedStoreIdsByDate.set(r.delivery_date, set);
+
+    if (new Date(r.created_at).getTime() <= sendDeadlineForDelivery(r.delivery_date).getTime()) {
+      const onTime = onTimeStoreIdsByDate.get(r.delivery_date) ?? new Set<string>();
+      onTime.add(r.store_id);
+      onTimeStoreIdsByDate.set(r.delivery_date, onTime);
+    }
   }
+
+  // stores that never sent any order to the system, for any delivery (new stores)
+  const neverReportedStoreIds = new Set<string>();
+  const storesWithoutCycleOnTime = new Set<string>();
+  for (const date of checkDates) {
+    for (const id of scheduledStoreIdsByDate.get(date) ?? []) {
+      if (!onTimeStoreIdsByDate.get(date)?.has(id)) storesWithoutCycleOnTime.add(id);
+    }
+  }
+  await Promise.all(
+    [...storesWithoutCycleOnTime].map(async (storeId) => {
+      const { data } = await supabase.from("store_stock_reports").select("id").eq("store_id", storeId).limit(1);
+      if (!data?.length) neverReportedStoreIds.add(storeId);
+    })
+  );
 
   const allScheduledStoreIds = new Set<string>();
   for (const ids of scheduledStoreIdsByDate.values()) for (const id of ids) allScheduledStoreIds.add(id);
@@ -160,12 +194,18 @@ export default async function OrdensPorDiaPage() {
 
   // full set of stores this cycle's order is drawing from, so a human reviewing the
   // order can immediately see who's considered without having to hunt per-product
-  const consideredByDate = new Map<string, { name: string; reported: boolean }[]>();
+  // green = sent on time for this delivery; orange = not (yet) on time, an earlier order is
+  // in the system; gray = this store has never sent any order to the system
+  type StoreSendState = "on_time" | "pending" | "none";
+  const consideredByDate = new Map<string, { name: string; state: StoreSendState }[]>();
   for (const date of checkDates) {
     const scheduled = scheduledStoreIdsByDate.get(date) ?? new Set<string>();
-    const reported = reportedStoreIdsByDate.get(date) ?? new Set<string>();
+    const onTime = onTimeStoreIdsByDate.get(date) ?? new Set<string>();
     const list = [...scheduled]
-      .map((id) => ({ name: storeNameById[id] ?? "?", reported: reported.has(id) }))
+      .map((id) => ({
+        name: storeNameById[id] ?? "?",
+        state: (onTime.has(id) ? "on_time" : neverReportedStoreIds.has(id) ? "none" : "pending") as StoreSendState,
+      }))
       .sort((a, b) => a.name.localeCompare(b.name));
     consideredByDate.set(date, list);
   }
@@ -255,19 +295,28 @@ export default async function OrdensPorDiaPage() {
           </div>
 
           {(consideredByDate.get(deliveryDate)?.length ?? 0) > 0 && (
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="font-medium text-neutral-500">Lojas consideradas nesta ordem:</span>
-              {consideredByDate.get(deliveryDate)!.map((store) => (
-                <span
-                  key={store.name}
-                  className="flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2 py-0.5"
-                >
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-400">
+                <span className="font-medium text-neutral-500">Lojas consideradas nesta ordem</span>
+                {SEND_STATE_LEGEND.map((item) => (
+                  <span key={item.state} className="flex items-center gap-1">
+                    <span className={`h-1.5 w-1.5 rounded-full ${SEND_STATE_DOT[item.state]}`} />
+                    {item.label}
+                  </span>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                {consideredByDate.get(deliveryDate)!.map((store) => (
                   <span
-                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${store.reported ? "bg-green-500" : "bg-neutral-300"}`}
-                  />
-                  {store.name}
-                </span>
-              ))}
+                    key={store.name}
+                    title={SEND_STATE_LEGEND.find((i) => i.state === store.state)?.label}
+                    className="flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2 py-0.5"
+                  >
+                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${SEND_STATE_DOT[store.state]}`} />
+                    {store.name}
+                  </span>
+                ))}
+              </div>
             </div>
           )}
 
