@@ -269,12 +269,12 @@ export default async function OrdensPorDiaPage() {
               type="submit"
               disabled={lateCount === 0}
               title={lateCount === 0 ? "Nenhum pedido atrasado — ordem atualizada" : "Incluir os pedidos atrasados na ordem"}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-neutral-700 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-400"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-orange-600"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               Atualizar ordem de produção
               {lateCount > 0 && (
-                <span className="rounded-full bg-orange-500 px-1.5 text-[10px] font-bold leading-4 text-white">
+                <span className="rounded-full bg-white px-1.5 text-[10px] font-bold leading-4 text-orange-700">
                   {lateCount}
                 </span>
               )}
