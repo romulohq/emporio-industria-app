@@ -240,27 +240,20 @@ export default async function OrdensPorDiaPage() {
           </p>
         </div>
         {profile.is_admin && (
-          <form
-            action={updateDayOrders}
-            className="flex shrink-0 items-center gap-3 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5"
-          >
-            <div className="text-xs leading-tight">
-              <p className="font-semibold text-violet-900">
-                {lateCount > 0
-                  ? `${lateCount} pedido${lateCount > 1 ? "s" : ""} atrasado${lateCount > 1 ? "s" : ""}`
-                  : "Nenhum pedido atrasado"}
-              </p>
-              <p className="text-violet-700">
-                {lateCount > 0 ? "aguardando entrar na ordem" : "ordem atualizada"}
-              </p>
-            </div>
+          <form action={updateDayOrders} className="shrink-0">
             <button
               type="submit"
               disabled={lateCount === 0}
-              className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-violet-600"
+              title={lateCount === 0 ? "Nenhum pedido atrasado — ordem atualizada" : "Incluir os pedidos atrasados na ordem"}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-neutral-700 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-400"
             >
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className="h-3.5 w-3.5" />
               Atualizar ordem de produção
+              {lateCount > 0 && (
+                <span className="rounded-full bg-orange-500 px-1.5 text-[10px] font-bold leading-4 text-white">
+                  {lateCount}
+                </span>
+              )}
             </button>
           </form>
         )}
