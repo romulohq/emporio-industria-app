@@ -184,14 +184,6 @@ export default async function OrdensPorDiaPage() {
     : { data: [] as { id: string; name: string }[] };
   const storeNameById = Object.fromEntries((allStoresForMissing ?? []).map((s) => [s.id, s.name]));
 
-  const missingByDate = new Map<string, string[]>();
-  for (const date of checkDates) {
-    const scheduled = scheduledStoreIdsByDate.get(date) ?? new Set<string>();
-    const reported = reportedStoreIdsByDate.get(date) ?? new Set<string>();
-    const missing = [...scheduled].filter((id) => !reported.has(id)).map((id) => storeNameById[id] ?? "?");
-    if (missing.length) missingByDate.set(date, missing.sort());
-  }
-
   // full set of stores this cycle's order is drawing from, so a human reviewing the
   // order can immediately see who's considered without having to hunt per-product
   // green = sent on time for this delivery; orange = not (yet) on time, an earlier order is
@@ -317,16 +309,6 @@ export default async function OrdensPorDiaPage() {
                   </span>
                 ))}
               </div>
-            </div>
-          )}
-
-          {missingByDate.get(deliveryDate) && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-              <span className="font-semibold">Pedido não recebido:</span>{" "}
-              {missingByDate.get(deliveryDate)!.join(", ")}
-              <span className="block text-xs text-red-700">
-                Na ordem, essas lojas entram com o último pedido que enviaram, se houver.
-              </span>
             </div>
           )}
 
