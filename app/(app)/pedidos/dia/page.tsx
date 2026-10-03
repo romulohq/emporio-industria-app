@@ -11,7 +11,7 @@ import { LateReportsPopup } from "@/components/orders/late-reports-popup";
 import { generateTodayProductionOrders } from "./actions";
 import { getUndecidedLateReports, groupLateReports } from "@/lib/orders/late-reports";
 import { deliveryDatesInProduction, productionDateForDelivery } from "@/lib/delivery-schedule";
-import { weekdayOfISODate, formatBrDate, fortalezaDateISO } from "@/lib/dates";
+import { weekdayOfISODate, formatBrDate, fortalezaDateISO, dateToFortalezaISO } from "@/lib/dates";
 import { WEEKDAY_LABELS, formatQuantity } from "@/lib/format/labels";
 import type {
   Product,
@@ -45,6 +45,15 @@ export default async function OrdensPorDiaPage() {
   const { data: contributions } = orderIds.length
     ? await supabase.from("production_order_contributions").select("*").in("order_id", orderIds)
     : { data: [] as ProductionOrderContribution[] };
+
+  // contributions built from an earlier cycle's report (store didn't send for this delivery)
+  const contributionReportIds = [...new Set((contributions ?? []).map((c) => c.report_id).filter(Boolean))] as string[];
+  const { data: contributionReports } = contributionReportIds.length
+    ? await supabase.from("store_stock_reports").select("id, delivery_date, created_at").in("id", contributionReportIds)
+    : { data: [] as Pick<StoreStockReport, "id" | "delivery_date" | "created_at">[] };
+  const reportById = new Map(
+    ((contributionReports ?? []) as Pick<StoreStockReport, "id" | "delivery_date" | "created_at">[]).map((r) => [r.id, r])
+  );
 
   const storeIds = [...new Set((contributions ?? []).map((c) => c.store_id))];
   const { data: stores } = storeIds.length
@@ -266,6 +275,9 @@ export default async function OrdensPorDiaPage() {
             <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
               <span className="font-semibold">Pedido não recebido:</span>{" "}
               {missingByDate.get(deliveryDate)!.join(", ")}
+              <span className="block text-xs text-red-700">
+                Na ordem, essas lojas entram com o último pedido que enviaram, se houver.
+              </span>
             </div>
           )}
 
@@ -316,6 +328,18 @@ export default async function OrdensPorDiaPage() {
                               <span className={c.locked ? "font-medium text-orange-700" : undefined}>
                                 {storesById[c.store_id]?.name ?? "?"} ({c.quantity})
                               </span>
+                              {(() => {
+                                const report = c.report_id ? reportById.get(c.report_id) : undefined;
+                                if (!report || report.delivery_date === order.delivery_date) return null;
+                                return (
+                                  <span
+                                    className="ml-1 rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-800"
+                                    title="A loja não enviou para esta entrega; usando o último pedido dela"
+                                  >
+                                    pedido de {formatBrDate(dateToFortalezaISO(new Date(report.created_at)))}
+                                  </span>
+                                );
+                              })()}
                               {profile.is_admin && product && (
                                 <ContributionMenu
                                   orderId={order.id}

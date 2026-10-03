@@ -62,6 +62,31 @@ export async function computeDayOrderPlan(
     if (!latestReportByStoreProduct.has(key)) latestReportByStoreProduct.set(key, report);
   }
 
+  // A store with no report at all for this cycle falls back to its most recent
+  // earlier submission (whole submission, any past cycle) instead of dropping
+  // out of the order. Reports for later cycles are never used.
+  const storesWithCycleReport = new Set([...latestReportByStoreProduct.values()].map((r) => r.store_id));
+  const fallbackStoreIds = storeIds.filter((id) => !storesWithCycleReport.has(id));
+  if (fallbackStoreIds.length > 0) {
+    const { data: older } = await admin
+      .from("store_stock_reports")
+      .select("*")
+      .in("store_id", fallbackStoreIds)
+      .in("product_id", productIds)
+      .or(`delivery_date.is.null,delivery_date.lt.${deliveryDateISO}`)
+      .order("created_at", { ascending: false });
+
+    const submissionByStore = new Map<string, string>();
+    for (const report of (older ?? []) as StoreStockReport[]) {
+      if (excludeIds.has(report.id)) continue;
+      const submissionId = submissionByStore.get(report.store_id) ?? report.submission_id;
+      submissionByStore.set(report.store_id, submissionId);
+      if (report.submission_id !== submissionId) continue;
+      const key = `${report.store_id}:${report.product_id}`;
+      if (!latestReportByStoreProduct.has(key)) latestReportByStoreProduct.set(key, report);
+    }
+  }
+
   const byProduct = new Map<string, Map<string, PlannedContribution>>();
   for (const min of minRows) {
     const report = latestReportByStoreProduct.get(`${min.store_id}:${min.product_id}`);
