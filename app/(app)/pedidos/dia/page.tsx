@@ -149,21 +149,27 @@ export default async function OrdensPorDiaPage() {
 
   const reportedStoreIdsByDate = new Map<string, Set<string>>();
   const onTimeStoreIdsByDate = new Map<string, Set<string>>();
+  const onTimeSentAt = new Map<string, number>();
   for (const r of (cycleReports ?? []) as { store_id: string; delivery_date: string | null; created_at: string }[]) {
     if (!r.delivery_date) continue;
     const set = reportedStoreIdsByDate.get(r.delivery_date) ?? new Set<string>();
     set.add(r.store_id);
     reportedStoreIdsByDate.set(r.delivery_date, set);
 
-    if (new Date(r.created_at).getTime() <= sendDeadlineForDelivery(r.delivery_date).getTime()) {
+    const sentAt = new Date(r.created_at).getTime();
+    if (sentAt <= sendDeadlineForDelivery(r.delivery_date).getTime()) {
       const onTime = onTimeStoreIdsByDate.get(r.delivery_date) ?? new Set<string>();
       onTime.add(r.store_id);
       onTimeStoreIdsByDate.set(r.delivery_date, onTime);
+
+      const key = `${r.delivery_date}:${r.store_id}`;
+      onTimeSentAt.set(key, Math.min(onTimeSentAt.get(key) ?? Infinity, sentAt));
     }
   }
 
   // stores that never sent any order to the system, for any delivery (new stores)
   const neverReportedStoreIds = new Set<string>();
+  const lastSentAtByStore = new Map<string, number>();
   const storesWithoutCycleOnTime = new Set<string>();
   for (const date of checkDates) {
     for (const id of scheduledStoreIdsByDate.get(date) ?? []) {
@@ -172,8 +178,14 @@ export default async function OrdensPorDiaPage() {
   }
   await Promise.all(
     [...storesWithoutCycleOnTime].map(async (storeId) => {
-      const { data } = await supabase.from("store_stock_reports").select("id").eq("store_id", storeId).limit(1);
+      const { data } = await supabase
+        .from("store_stock_reports")
+        .select("created_at")
+        .eq("store_id", storeId)
+        .order("created_at", { ascending: false })
+        .limit(1);
       if (!data?.length) neverReportedStoreIds.add(storeId);
+      else lastSentAtByStore.set(storeId, new Date(data[0].created_at).getTime());
     })
   );
 
@@ -189,16 +201,24 @@ export default async function OrdensPorDiaPage() {
   // green = sent on time for this delivery; orange = not (yet) on time, an earlier order is
   // in the system; gray = this store has never sent any order to the system
   type StoreSendState = "on_time" | "pending" | "none";
+  // listed green, then orange, then gray; within green/orange, by send time (oldest first —
+  // green by the on-time send for this delivery, orange by the store's latest send)
+  const STATE_RANK: Record<StoreSendState, number> = { on_time: 0, pending: 1, none: 2 };
   const consideredByDate = new Map<string, { name: string; state: StoreSendState }[]>();
   for (const date of checkDates) {
     const scheduled = scheduledStoreIdsByDate.get(date) ?? new Set<string>();
     const onTime = onTimeStoreIdsByDate.get(date) ?? new Set<string>();
     const list = [...scheduled]
-      .map((id) => ({
-        name: storeNameById[id] ?? "?",
-        state: (onTime.has(id) ? "on_time" : neverReportedStoreIds.has(id) ? "none" : "pending") as StoreSendState,
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .map((id) => {
+        const state: StoreSendState = onTime.has(id) ? "on_time" : neverReportedStoreIds.has(id) ? "none" : "pending";
+        const sentAt =
+          state === "on_time" ? onTimeSentAt.get(`${date}:${id}`) : state === "pending" ? lastSentAtByStore.get(id) : undefined;
+        return { name: storeNameById[id] ?? "?", state, sentAt: sentAt ?? Infinity };
+      })
+      .sort(
+        (a, b) =>
+          STATE_RANK[a.state] - STATE_RANK[b.state] || a.sentAt - b.sentAt || a.name.localeCompare(b.name)
+      );
     consideredByDate.set(date, list);
   }
 
