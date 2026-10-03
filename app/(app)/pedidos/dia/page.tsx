@@ -25,11 +25,19 @@ import type {
   StoreStockReport,
 } from "@/lib/types/database.types";
 
-const SEND_STATE_DOT = { on_time: "bg-green-500", pending: "bg-orange-400", none: "bg-neutral-300" } as const;
+type StoreSendState = "on_time" | "late" | "missing" | "none";
+
+const SEND_STATE_DOT: Record<StoreSendState, string> = {
+  on_time: "bg-green-500",
+  late: "bg-orange-400",
+  missing: "bg-red-500",
+  none: "bg-neutral-300",
+};
 
 const SEND_STATE_LEGEND = [
-  { state: "on_time", label: "Enviou no prazo" },
-  { state: "pending", label: "Pedido pendente" },
+  { state: "on_time", label: "Pedido enviado" },
+  { state: "late", label: "Enviado atrasado" },
+  { state: "missing", label: "Pedido não enviado" },
   { state: "none", label: "Nenhum pedido no sistema" },
 ] as const;
 
@@ -149,6 +157,7 @@ export default async function OrdensPorDiaPage() {
   const reportedStoreIdsByDate = new Map<string, Set<string>>();
   const onTimeStoreIdsByDate = new Map<string, Set<string>>();
   const onTimeSentAt = new Map<string, number>();
+  const reportedSentAt = new Map<string, number>();
   for (const r of (cycleReports ?? []) as { store_id: string; delivery_date: string | null; created_at: string }[]) {
     if (!r.delivery_date) continue;
     const set = reportedStoreIdsByDate.get(r.delivery_date) ?? new Set<string>();
@@ -156,6 +165,8 @@ export default async function OrdensPorDiaPage() {
     reportedStoreIdsByDate.set(r.delivery_date, set);
 
     const sentAt = new Date(r.created_at).getTime();
+    const reportedKey = `${r.delivery_date}:${r.store_id}`;
+    reportedSentAt.set(reportedKey, Math.min(reportedSentAt.get(reportedKey) ?? Infinity, sentAt));
     if (sentAt <= sendDeadlineForDelivery(r.delivery_date).getTime()) {
       const onTime = onTimeStoreIdsByDate.get(r.delivery_date) ?? new Set<string>();
       onTime.add(r.store_id);
@@ -169,14 +180,14 @@ export default async function OrdensPorDiaPage() {
   // stores that never sent any order to the system, for any delivery (new stores)
   const neverReportedStoreIds = new Set<string>();
   const lastSentAtByStore = new Map<string, number>();
-  const storesWithoutCycleOnTime = new Set<string>();
+  const storesWithoutCycleReport = new Set<string>();
   for (const date of checkDates) {
     for (const id of scheduledStoreIdsByDate.get(date) ?? []) {
-      if (!onTimeStoreIdsByDate.get(date)?.has(id)) storesWithoutCycleOnTime.add(id);
+      if (!reportedStoreIdsByDate.get(date)?.has(id)) storesWithoutCycleReport.add(id);
     }
   }
   await Promise.all(
-    [...storesWithoutCycleOnTime].map(async (storeId) => {
+    [...storesWithoutCycleReport].map(async (storeId) => {
       const { data } = await supabase
         .from("store_stock_reports")
         .select("created_at")
@@ -197,21 +208,34 @@ export default async function OrdensPorDiaPage() {
 
   // full set of stores this cycle's order is drawing from, so a human reviewing the
   // order can immediately see who's considered without having to hunt per-product
-  // green = sent on time for this delivery; orange = not (yet) on time, an earlier order is
-  // in the system; gray = this store has never sent any order to the system
-  type StoreSendState = "on_time" | "pending" | "none";
-  // listed green, then orange, then gray; within green/orange, by send time (oldest first —
-  // green by the on-time send for this delivery, orange by the store's latest send)
-  const STATE_RANK: Record<StoreSendState, number> = { on_time: 0, pending: 1, none: 2 };
+  // green = sent on time for this delivery; orange = sent for it, but after the deadline;
+  // red = nothing sent for it (an earlier order is in the system); gray = this store has
+  // never sent any order to the system
+  // listed green, orange, red, gray; within each, by send time (oldest first — on-time and
+  // late by this delivery's send, red by the store's latest earlier send)
+  const STATE_RANK: Record<StoreSendState, number> = { on_time: 0, late: 1, missing: 2, none: 3 };
   const consideredByDate = new Map<string, { name: string; state: StoreSendState }[]>();
   for (const date of checkDates) {
     const scheduled = scheduledStoreIdsByDate.get(date) ?? new Set<string>();
     const onTime = onTimeStoreIdsByDate.get(date) ?? new Set<string>();
+    const reported = reportedStoreIdsByDate.get(date) ?? new Set<string>();
     const list = [...scheduled]
       .map((id) => {
-        const state: StoreSendState = onTime.has(id) ? "on_time" : neverReportedStoreIds.has(id) ? "none" : "pending";
+        const state: StoreSendState = onTime.has(id)
+          ? "on_time"
+          : reported.has(id)
+            ? "late"
+            : neverReportedStoreIds.has(id)
+              ? "none"
+              : "missing";
         const sentAt =
-          state === "on_time" ? onTimeSentAt.get(`${date}:${id}`) : state === "pending" ? lastSentAtByStore.get(id) : undefined;
+          state === "on_time"
+            ? onTimeSentAt.get(`${date}:${id}`)
+            : state === "late"
+              ? reportedSentAt.get(`${date}:${id}`)
+              : state === "missing"
+                ? lastSentAtByStore.get(id)
+                : undefined;
         return { name: storeNameById[id] ?? "?", state, sentAt: sentAt ?? Infinity };
       })
       .sort(
