@@ -8,6 +8,7 @@ import { requireAdmin } from "@/lib/auth/get-session";
 import { createStoreSchema, updateStoreSchema } from "@/lib/validations/store";
 import { storeProductMinRowSchema } from "@/lib/validations/store-product-min";
 import { storeWeekdaysSchema } from "@/lib/validations/delivery-schedule";
+import { relinkStoreReports } from "@/lib/orders/relink-store-reports";
 
 export type FormState = { error?: string } | undefined;
 
@@ -94,6 +95,9 @@ export async function saveStoreDeliverySchedule(formData: FormData) {
   const { store_id, weekdays } = parsed.data;
   const supabase = await createClient();
 
+  const { data: previousDays } = await supabase.from("store_delivery_days").select("weekday").eq("store_id", store_id);
+  const previousWeekdays = new Set((previousDays ?? []).map((d) => d.weekday as string));
+
   await supabase
     .from("store_delivery_days")
     .delete()
@@ -108,6 +112,10 @@ export async function saveStoreDeliverySchedule(formData: FormData) {
         { onConflict: "store_id,weekday", ignoreDuplicates: true }
       );
   }
+
+  await relinkStoreReports(
+    weekdays.filter((weekday) => !previousWeekdays.has(weekday)).map((weekday) => ({ storeId: store_id, weekday }))
+  );
 
   revalidatePath(`/admin/lojas/${store_id}`);
   revalidatePath(`/admin/lojas/${store_id}/prazos`);

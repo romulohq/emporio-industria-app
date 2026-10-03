@@ -9,6 +9,7 @@ import { createRouteSchema } from "@/lib/validations/route";
 import { scheduleSchema, applyRouteImpactSchema } from "@/lib/validations/delivery-schedule";
 import { computeRouteScheduleImpact } from "@/lib/orders/route-schedule-impact";
 import { regenerateSectorDayOrder } from "@/lib/orders/regenerate-day-order";
+import { relinkStoreReports, acknowledgeLateReportsForRegeneration } from "@/lib/orders/relink-store-reports";
 import { slugify } from "@/lib/format/slugify";
 import type { StoreDeliveryDay, Weekday } from "@/lib/types/database.types";
 
@@ -106,6 +107,15 @@ export async function saveUnitSchedule(formData: FormData) {
   const changedWeekdays = new Set<Weekday>();
   for (const key of [...addedKeys, ...toDelete]) changedWeekdays.add(key.split(":")[1] as Weekday);
 
+  // schedules and store reports are linked: reports already sent by a store newly added to a
+  // weekday are re-attached to that delivery, so their status is judged against its deadline
+  await relinkStoreReports(
+    addedKeys.map((key) => {
+      const [storeId, weekday] = key.split(":");
+      return { storeId, weekday: weekday as Weekday };
+    })
+  );
+
   const impactGroups = await computeRouteScheduleImpact(changedWeekdays);
   if (impactGroups.length > 0) {
     const params = new URLSearchParams({ unit_id: unitId });
@@ -138,6 +148,7 @@ export async function applyRouteScheduleImpact(formData: FormData) {
       "Alteração na rota/dias de entrega",
       userId
     );
+    await acknowledgeLateReportsForRegeneration(sector_ids[i], delivery_dates[i], userId);
   }
 
   revalidatePath("/pedidos");
