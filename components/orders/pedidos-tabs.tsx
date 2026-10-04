@@ -6,9 +6,9 @@ import { cn } from "@/lib/utils";
 
 const TABS = [
   { href: "/pedidos", label: "Monitor" },
-  { href: "/pedidos/dia", label: "Por dia (Rui Barbosa)" },
-  { href: "/pedidos/dia/historico", label: "Histórico de pedidos" },
+  { href: "/pedidos/dia", label: "Ordem do dia" },
   { href: "/pedidos/respostas", label: "Respostas das lojas", adminOnly: true },
+  { href: "/pedidos/dia/historico", label: "Histórico de pedidos" },
 ];
 
 export function PedidosTabs({ isAdmin = false }: { isAdmin?: boolean }) {
