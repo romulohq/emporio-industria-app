@@ -452,17 +452,17 @@ export default async function OrdensPorDiaPage() {
                         .sort((a, b) => a.name.localeCompare(b.name)),
                     ];
                     return (
-                      <details key={order.id} className="group px-4 py-3">
+                      <details key={order.id} className="group px-4 py-2">
                         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
                           <span className="flex items-center gap-1.5">
-                            <ChevronRight className="h-4 w-4 shrink-0 text-neutral-400 transition-transform group-open:rotate-90" />
-                            <span className="font-medium text-neutral-900">{product?.name ?? "—"}</span>
+                            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-neutral-400 transition-transform group-open:rotate-90" />
+                            <span className="text-sm font-medium text-neutral-800">{product?.name ?? "—"}</span>
                           </span>
-                          <span className="font-semibold text-neutral-900">
+                          <span className="text-sm font-semibold text-neutral-800">
                             {product ? formatQuantity(order.quantity, product.unit) : order.quantity}
                           </span>
                         </summary>
-                        <ul className="mt-2 space-y-0.5 pl-5.5 text-sm">
+                        <ul className="mt-1.5 space-y-0.5 pl-5 text-xs">
                           {storeRows.map((row) => (
                             <li key={row.storeId} className="flex items-center justify-between gap-2">
                               <span
