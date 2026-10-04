@@ -8,7 +8,7 @@ export const productSchema = z.object({
     .trim()
     .optional()
     .transform((v) => (v ? v : undefined)),
-  unit: z.string().trim().min(1, "Informe a unidade").default("un"),
+  unit: z.string().trim().min(1, "Informe a unidade").default("und"),
   min_quantity: z.coerce.number().min(0, "Não pode ser negativo"),
   current_quantity: z.coerce.number().min(0, "Não pode ser negativo").optional(),
   production_group: z

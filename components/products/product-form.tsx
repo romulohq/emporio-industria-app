@@ -51,7 +51,7 @@ export function ProductForm({
         </div>
         <div>
           <Label htmlFor="unit">Unidade</Label>
-          <Input id="unit" name="unit" defaultValue={product?.unit ?? "un"} required />
+          <Input id="unit" name="unit" defaultValue={product?.unit ?? "und"} required />
         </div>
       </div>
 

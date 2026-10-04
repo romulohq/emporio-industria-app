@@ -93,8 +93,7 @@ async function flagReportsMissingFromGeneratedOrders(
     .eq("source", "auto_route")
     .in("status", ["pending", "in_progress"])
     .not("generated_at", "is", null)
-    .in("delivery_date", deliveryDates)
-    .in("product_id", productIds);
+    .in("delivery_date", deliveryDates);
   const ordersList = (orders ?? []) as ProductionOrder[];
   if (ordersList.length === 0) return 0;
 
@@ -111,10 +110,13 @@ async function flagReportsMissingFromGeneratedOrders(
 
   let flagged = 0;
   for (const { report, deliveryDate } of rows) {
-    const order = ordersList.find((o) => o.delivery_date === deliveryDate && o.product_id === report.product_id);
+    // a product with no order yet still counts when its delivery was already generated: the
+    // report would add one, so it needs review (same rule as the database trigger)
+    const productOrder = ordersList.find((o) => o.delivery_date === deliveryDate && o.product_id === report.product_id);
+    const order = productOrder ?? ordersList.find((o) => o.delivery_date === deliveryDate);
     if (!order) continue;
 
-    const contribution = contributionByKey.get(`${order.id}:${report.store_id}`);
+    const contribution = productOrder ? contributionByKey.get(`${order.id}:${report.store_id}`) : undefined;
     if (contribution?.report_id === report.id) continue; // the order already uses this very report
 
     const min = minByKey.get(`${report.store_id}:${report.product_id}`);

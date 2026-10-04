@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Printer, RefreshCw } from "lucide-react";
+import { ChevronRight, Printer, RefreshCw } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireUser } from "@/lib/auth/get-session";
 import { PedidosTabs } from "@/components/orders/pedidos-tabs";
 import { ContributionMenu, type ContributionHistoryItem } from "@/components/orders/contribution-menu";
@@ -207,6 +208,27 @@ export default async function OrdensPorDiaPage() {
     : { data: [] as { id: string; name: string }[] };
   const storeNameById = Object.fromEntries((allStoresForMissing ?? []).map((s) => [s.id, s.name]));
 
+  // which scheduled stores carry each ordered product — so stores asking for zero are listed too.
+  // Only store/product pairs are read (never the minimum values), through the admin client
+  // because store_product_mins is admin-only.
+  const carriers = new Set<string>();
+  const orderProductIds = [...new Set((orders ?? []).map((o) => o.product_id as string))];
+  if (allScheduledStoreIds.size && orderProductIds.length) {
+    const admin = createAdminClient();
+    for (let from = 0; ; from += 1000) {
+      const { data: page } = await admin
+        .from("store_product_mins")
+        .select("store_id, product_id")
+        .in("store_id", [...allScheduledStoreIds])
+        .in("product_id", orderProductIds)
+        .order("store_id")
+        .order("product_id")
+        .range(from, from + 999);
+      for (const row of page ?? []) carriers.add(`${row.store_id}:${row.product_id}`);
+      if (!page || page.length < 1000) break;
+    }
+  }
+
   // full set of stores this cycle's order is drawing from, so a human reviewing the
   // order can immediately see who's considered without having to hunt per-product
   // green = sent on time for this delivery; orange = sent for it, but after the deadline;
@@ -399,47 +421,80 @@ export default async function OrdensPorDiaPage() {
                   {sectorOrders.map((order) => {
                     const product = productsById[order.product_id];
                     const orderContributions = contributionsByOrder.get(order.id) ?? [];
+                    const contributedStoreIds = new Set(orderContributions.map((c) => c.store_id));
+                    const storeRows = [
+                      ...[...orderContributions]
+                        .sort((a, b) => b.quantity - a.quantity)
+                        .map((c) => {
+                          const report = c.report_id ? reportById.get(c.report_id) : undefined;
+                          return {
+                            storeId: c.store_id,
+                            name: storesById[c.store_id]?.name ?? "?",
+                            quantity: c.quantity,
+                            locked: c.locked,
+                            contribution: c,
+                            oldReportDate:
+                              report && report.delivery_date !== order.delivery_date
+                                ? formatBrDate(dateToFortalezaISO(new Date(report.created_at)))
+                                : null,
+                          };
+                        }),
+                      ...[...(scheduledStoreIdsByDate.get(order.delivery_date ?? "") ?? [])]
+                        .filter((id) => carriers.has(`${id}:${order.product_id}`) && !contributedStoreIds.has(id))
+                        .map((id) => ({
+                          storeId: id,
+                          name: storeNameById[id] ?? "?",
+                          quantity: 0,
+                          locked: false,
+                          contribution: null as (typeof orderContributions)[number] | null,
+                          oldReportDate: null as string | null,
+                        }))
+                        .sort((a, b) => a.name.localeCompare(b.name)),
+                    ];
                     return (
-                      <div key={order.id} className="px-4 py-3">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium text-neutral-900">{product?.name ?? "—"}</span>
+                      <details key={order.id} className="group px-4 py-3">
+                        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
+                          <span className="flex items-center gap-1.5">
+                            <ChevronRight className="h-4 w-4 shrink-0 text-neutral-400 transition-transform group-open:rotate-90" />
+                            <span className="font-medium text-neutral-900">{product?.name ?? "—"}</span>
+                          </span>
                           <span className="font-semibold text-neutral-900">
                             {product ? formatQuantity(order.quantity, product.unit) : order.quantity}
                           </span>
-                        </div>
-                        <div className="mt-1 flex flex-wrap items-center gap-x-1 gap-y-0.5">
-                          {orderContributions.map((c, i) => (
-                            <span key={c.store_id} className="flex items-center text-xs text-neutral-500">
-                              {i > 0 && <span className="mr-1">,</span>}
-                              <span className={c.locked ? "font-medium text-orange-700" : undefined}>
-                                {storesById[c.store_id]?.name ?? "?"} ({c.quantity})
-                              </span>
-                              {(() => {
-                                const report = c.report_id ? reportById.get(c.report_id) : undefined;
-                                if (!report || report.delivery_date === order.delivery_date) return null;
-                                return (
+                        </summary>
+                        <ul className="mt-2 space-y-0.5 pl-5.5 text-sm">
+                          {storeRows.map((row) => (
+                            <li key={row.storeId} className="flex items-center justify-between gap-2">
+                              <span
+                                className={`flex min-w-0 items-center ${row.quantity === 0 ? "text-neutral-400" : row.locked ? "font-medium text-orange-700" : "text-neutral-600"}`}
+                              >
+                                <span className="truncate">{row.name}</span>
+                                {row.oldReportDate && (
                                   <span
-                                    className="ml-1 rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-800"
+                                    className="ml-1.5 rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-800"
                                     title="A loja não enviou para esta entrega; usando o último pedido dela"
                                   >
-                                    pedido de {formatBrDate(dateToFortalezaISO(new Date(report.created_at)))}
+                                    pedido de {row.oldReportDate}
                                   </span>
-                                );
-                              })()}
-                              {profile.is_admin && product && (
-                                <ContributionMenu
-                                  orderId={order.id}
-                                  storeId={c.store_id}
-                                  locked={c.locked}
-                                  currentReportId={c.report_id}
-                                  unit={product.unit}
-                                  history={historyByStoreProduct.get(`${c.store_id}:${order.product_id}`) ?? []}
-                                />
-                              )}
-                            </span>
+                                )}
+                                {profile.is_admin && product && row.contribution && (
+                                  <ContributionMenu
+                                    orderId={order.id}
+                                    storeId={row.storeId}
+                                    locked={row.contribution.locked}
+                                    currentReportId={row.contribution.report_id}
+                                    unit={product.unit}
+                                    history={historyByStoreProduct.get(`${row.storeId}:${order.product_id}`) ?? []}
+                                  />
+                                )}
+                              </span>
+                              <span className={row.quantity === 0 ? "text-neutral-400" : "text-neutral-700"}>
+                                {product ? formatQuantity(row.quantity, product.unit) : row.quantity}
+                              </span>
+                            </li>
                           ))}
-                        </div>
-                      </div>
+                        </ul>
+                      </details>
                     );
                   })}
                 </div>
