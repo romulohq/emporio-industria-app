@@ -9,6 +9,7 @@ const INK: [number, number, number] = [23, 23, 23];
 const MUTED: [number, number, number] = [115, 115, 115];
 const HAIRLINE: [number, number, number] = [235, 235, 235];
 const ACCENT: [number, number, number] = [234, 88, 12];
+const TINT: [number, number, number] = [255, 247, 237];
 
 const PAGE_W = 210;
 const PAGE_H = 297;
@@ -66,17 +67,18 @@ export function buildStockReportPdf(report: SentReport): jsPDF {
 
   // header
   text("EMPÓRIO DO PÃO", MARGIN, 22, { size: 8, bold: true, color: ACCENT, spacing: 1.2 });
-  text("Relatório de estoque", PAGE_W - MARGIN, 22, { size: 8, color: MUTED, align: "right" });
-  text(report.storeName, MARGIN, 38, { size: 24, bold: true, color: INK });
-  text(`Enviado em ${formatSentAt(report.sentAt)}`, MARGIN, 47, { size: 10, color: MUTED });
-  text(`${itemCount} ${itemCount === 1 ? "item informado" : "itens informados"}`, PAGE_W - MARGIN, 47, {
-    size: 10,
-    color: MUTED,
-    align: "right",
-  });
-  rule(54);
+  text("Relatório de estoque", MARGIN, 37, { size: 24, bold: true, color: INK });
+  text(report.storeName, MARGIN, 46, { size: 13, bold: true, color: ACCENT });
 
-  let y = 66;
+  // send date/time and item count, set on a soft tinted band so they read at a glance
+  doc.setFillColor(...TINT);
+  doc.roundedRect(MARGIN, 53, PAGE_W - MARGIN * 2, 17, 2, 2, "F");
+  text("ENVIADO EM", MARGIN + 5, 59, { size: 6.5, bold: true, color: MUTED, spacing: 0.9 });
+  text(formatSentAt(report.sentAt), MARGIN + 5, 66, { size: 13, bold: true, color: INK });
+  text("ITENS INFORMADOS", PAGE_W - MARGIN - 5, 59, { size: 6.5, bold: true, color: MUTED, align: "right", spacing: 0.9 });
+  text(String(itemCount), PAGE_W - MARGIN - 5, 66, { size: 13, bold: true, color: INK, align: "right" });
+
+  let y = 84;
   const continuationHeader = () => {
     text(report.storeName, MARGIN, 18, { size: 8, bold: true, color: MUTED });
     text(`Enviado em ${formatSentAt(report.sentAt)}`, PAGE_W - MARGIN, 18, { size: 8, color: MUTED, align: "right" });
