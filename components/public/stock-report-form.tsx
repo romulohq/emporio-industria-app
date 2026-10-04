@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StockReportActions } from "@/components/public/stock-report-actions";
 import type { SubmitState } from "@/app/relatar-estoque/[token]/actions";
 
 const initialState: SubmitState = undefined;
@@ -23,6 +24,7 @@ export function StockReportForm({
       <div className="rounded-lg border border-green-200 bg-green-50 p-6 text-center">
         <p className="text-lg font-semibold text-green-800">Estoque relatado com sucesso!</p>
         <p className="mt-1 text-sm text-green-700">Obrigado — pode fechar esta página.</p>
+        {state.report && <StockReportActions report={state.report} />}
       </div>
     );
   }

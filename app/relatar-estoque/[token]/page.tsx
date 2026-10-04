@@ -4,6 +4,7 @@ import { submitStockReport } from "./actions";
 import { computeCurrentCycle } from "@/lib/delivery-schedule";
 import { formatBrDate } from "@/lib/dates";
 import { WEEKDAY_LABELS } from "@/lib/format/labels";
+import { compareSectorNames } from "@/lib/format/sectors";
 import type { StoreDeliveryDay } from "@/lib/types/database.types";
 
 export default async function RelatarEstoquePage({
@@ -66,11 +67,9 @@ export default async function RelatarEstoquePage({
     list.push({ id: product.id, name: product.name, unit: product.unit });
     groupsMap.set(sectorName, list);
   }
-  const SECTOR_ORDER = ["Pão", "Confeitaria", "Embalagens"];
-  const rank = (name: string) => (SECTOR_ORDER.includes(name) ? SECTOR_ORDER.indexOf(name) : SECTOR_ORDER.length);
   const groups = [...groupsMap.entries()]
     .map(([sectorName, products]) => ({ sectorName, products }))
-    .sort((a, b) => rank(a.sectorName) - rank(b.sectorName) || a.sectorName.localeCompare(b.sectorName));
+    .sort((x, y) => compareSectorNames(x.sectorName, y.sectorName));
 
   const boundAction = submitStockReport.bind(null, token);
 

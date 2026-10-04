@@ -5,9 +5,17 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stockReportRowSchema } from "@/lib/validations/stock-report";
 import { computeCurrentCycle } from "@/lib/delivery-schedule";
+import { compareSectorNames } from "@/lib/format/sectors";
 import type { StoreDeliveryDay } from "@/lib/types/database.types";
 
-export type SubmitState = { error?: string; success?: boolean } | undefined;
+export type SentReport = {
+  storeName: string;
+  /** ISO timestamp of when the report was sent */
+  sentAt: string;
+  groups: { sectorName: string; items: { name: string; unit: string; quantity: number }[] }[];
+};
+
+export type SubmitState = { error?: string; success?: boolean; report?: SentReport } | undefined;
 
 export async function submitStockReport(
   token: string,
@@ -18,7 +26,7 @@ export async function submitStockReport(
 
   const { data: store } = await admin
     .from("stores")
-    .select("id, active")
+    .select("id, name, active")
     .eq("access_token", token)
     .single();
 
@@ -77,5 +85,26 @@ export async function submitStockReport(
   }
 
   revalidatePath(`/relatar-estoque/${token}`);
-  return { success: true };
+
+  const productIds = rows.map((r) => r.product_id);
+  const { data: products } = await admin.from("products").select("id, name, unit, sector_id").in("id", productIds);
+  const sectorIds = [...new Set((products ?? []).map((p) => p.sector_id as string))];
+  const { data: sectors } = await admin.from("sectors").select("id, name").in("id", sectorIds);
+  const sectorNameById = new Map((sectors ?? []).map((s) => [s.id as string, s.name as string]));
+  const productById = new Map((products ?? []).map((p) => [p.id as string, p]));
+
+  const itemsBySector = new Map<string, SentReport["groups"][number]["items"]>();
+  for (const row of rows) {
+    const product = productById.get(row.product_id);
+    if (!product) continue;
+    const sectorName = sectorNameById.get(product.sector_id as string) ?? "Outros";
+    const list = itemsBySector.get(sectorName) ?? [];
+    list.push({ name: product.name as string, unit: product.unit as string, quantity: row.quantity_reported });
+    itemsBySector.set(sectorName, list);
+  }
+  const groups = [...itemsBySector.entries()]
+    .map(([sectorName, items]) => ({ sectorName, items: items.sort((a, b) => a.name.localeCompare(b.name)) }))
+    .sort((a, b) => compareSectorNames(a.sectorName, b.sectorName));
+
+  return { success: true, report: { storeName: store.name as string, sentAt: new Date().toISOString(), groups } };
 }
