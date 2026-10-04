@@ -88,7 +88,7 @@ export default async function EstoqueMinimoPage({
 
         {grouped.size === 0 && (
           <p className="text-sm text-neutral-500">
-            Nenhum produto cadastrado ainda nos setores Pão/Confeitaria da Unidade Rui Barbosa.
+            Nenhum produto cadastrado ainda nos setores da Unidade Rui Barbosa.
           </p>
         )}
 
