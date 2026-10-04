@@ -15,15 +15,7 @@ export const lateReportIdSchema = z.object({
   report_id: z.string().uuid(),
 });
 
-export const keepCurrentOrderSchema = z.object({
-  sector_id: z.string().uuid(),
+export const lateStoreSchema = z.object({
+  store_id: z.string().uuid(),
   delivery_date: z.string().min(1),
-  report_ids: z.array(z.string().uuid()).min(1),
-});
-
-export const regenerateWithLateReportsSchema = z.object({
-  sector_id: z.string().uuid(),
-  delivery_date: z.string().min(1),
-  include_report_ids: z.array(z.string().uuid()),
-  exclude_report_ids: z.array(z.string().uuid()),
 });

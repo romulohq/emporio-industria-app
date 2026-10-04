@@ -13,8 +13,7 @@ import { deliveryDatesProducedOn } from "@/lib/delivery-schedule";
 import {
   manualContributionSchema,
   clearContributionSchema,
-  keepCurrentOrderSchema,
-  regenerateWithLateReportsSchema,
+  lateStoreSchema,
 } from "@/lib/validations/manual-contribution";
 
 function revalidateOrdersPaths() {
@@ -188,85 +187,93 @@ export async function clearManualContribution(formData: FormData) {
   revalidateOrdersPaths();
 }
 
-/** Keeps the current order as-is for a group of late reports — records who decided and when. */
-export async function keepCurrentOrder(formData: FormData) {
+/** "Não considerar o pedido": keeps the current order and keeps this store's late report out of every future regeneration. */
+export async function dismissLateStore(formData: FormData) {
   const { userId } = await requireAdmin();
-
-  const parsed = keepCurrentOrderSchema.safeParse({
-    sector_id: formData.get("sector_id"),
+  const parsed = lateStoreSchema.safeParse({
+    store_id: formData.get("store_id"),
     delivery_date: formData.get("delivery_date"),
-    report_ids: formData.getAll("report_ids"),
   });
   if (!parsed.success) return;
-  const { sector_id, delivery_date, report_ids } = parsed.data;
+
+  const rows = (await getUndecidedLateReports()).filter(
+    (r) => r.storeId === parsed.data.store_id && r.deliveryDate === parsed.data.delivery_date
+  );
+  if (rows.length === 0) return;
 
   const supabase = await createClient();
-
   await supabase.from("late_report_decisions").insert(
-    report_ids.map((report_id) => ({
-      report_id,
-      sector_id,
-      delivery_date,
+    rows.map((r) => ({
+      report_id: r.reportId,
+      sector_id: r.sectorId,
+      delivery_date: r.deliveryDate,
       decision: "kept" as const,
       decided_by: userId,
     }))
   );
-
-  // store_stock_reports has no update RLS policy (only the sync trigger writes to it),
-  // so this must go through the admin client or it silently no-ops.
-  await createAdminClient().from("store_stock_reports").update({ late_acknowledged: true }).in("id", report_ids);
+  // store_stock_reports has no update RLS policy, so this must go through the admin client
+  await createAdminClient()
+    .from("store_stock_reports")
+    .update({ late_acknowledged: true })
+    .in("id", rows.map((r) => r.reportId));
 
   revalidateOrdersPaths();
 }
 
-/** Regenerates a sector's day order including (or excluding) specific late reports, versioning the previous state. */
-export async function regenerateWithLateReports(formData: FormData) {
+/**
+ * "Atualizar ordem de produção" for one store's late order: regenerates each affected
+ * sector's order (versioned) including this store's late reports; other stores' still-undecided
+ * late reports stay out until they are decided themselves.
+ */
+export async function includeLateStore(formData: FormData) {
   const { userId } = await requireAdmin();
-
-  const parsed = regenerateWithLateReportsSchema.safeParse({
-    sector_id: formData.get("sector_id"),
+  const parsed = lateStoreSchema.safeParse({
+    store_id: formData.get("store_id"),
     delivery_date: formData.get("delivery_date"),
-    include_report_ids: formData.getAll("include_report_ids"),
-    exclude_report_ids: formData.getAll("exclude_report_ids"),
   });
   if (!parsed.success) return;
-  const { sector_id, delivery_date, include_report_ids, exclude_report_ids } = parsed.data;
 
-  const { data: stores } = include_report_ids.length
-    ? await createAdminClient()
-        .from("store_stock_reports")
-        .select("store_id, stores(name)")
-        .in("id", include_report_ids)
-    : { data: [] as { store_id: string; stores: { name: string } | null }[] };
-  const storeNames = (stores ?? []).map((s) => s.stores?.name).filter(Boolean);
-  const reason = storeNames.length ? `Inclui pedido(s) atrasado(s): ${storeNames.join(", ")}` : null;
-
-  const { versionNumber } = await regenerateSectorDayOrder(
-    sector_id,
-    delivery_date,
-    new Set(exclude_report_ids),
-    reason,
-    userId
+  const undecided = await getUndecidedLateReports();
+  const mine = undecided.filter(
+    (r) => r.storeId === parsed.data.store_id && r.deliveryDate === parsed.data.delivery_date
   );
+  if (mine.length === 0) return;
 
-  const allDecided = [...include_report_ids, ...exclude_report_ids];
-  if (allDecided.length) {
-    const supabase = await createClient();
-    await supabase.from("late_report_decisions").insert(
-      allDecided.map((report_id) => ({
-        report_id,
-        sector_id,
-        delivery_date,
-        decision: "regenerated" as const,
-        decided_by: userId,
-      }))
+  const supabase = await createClient();
+  const sectorIds = [...new Set(mine.map((r) => r.sectorId))];
+
+  for (const sectorId of sectorIds) {
+    const others = undecided
+      .filter(
+        (r) =>
+          r.sectorId === sectorId &&
+          r.deliveryDate === parsed.data.delivery_date &&
+          r.storeId !== parsed.data.store_id
+      )
+      .map((r) => r.reportId);
+
+    await regenerateSectorDayOrder(
+      sectorId,
+      parsed.data.delivery_date,
+      new Set(others),
+      `Inclui pedido atrasado: ${mine[0].storeName}`,
+      userId
     );
-    // store_stock_reports has no update RLS policy (only the sync trigger writes to it),
-    // so this must go through the admin client or it silently no-ops.
-    await createAdminClient().from("store_stock_reports").update({ late_acknowledged: true }).in("id", allDecided);
   }
 
+  await supabase.from("late_report_decisions").insert(
+    mine.map((r) => ({
+      report_id: r.reportId,
+      sector_id: r.sectorId,
+      delivery_date: r.deliveryDate,
+      decision: "regenerated" as const,
+      decided_by: userId,
+    }))
+  );
+  await createAdminClient()
+    .from("store_stock_reports")
+    .update({ late_acknowledged: true })
+    .in("id", mine.map((r) => r.reportId));
+
   revalidateOrdersPaths();
-  revalidatePath("/pedidos/dia/imprimir-colaboradores");
-  redirect(`/pedidos/dia/imprimir-colaboradores?date=${delivery_date}&sector=${sector_id}&versao=${versionNumber}`);
 }

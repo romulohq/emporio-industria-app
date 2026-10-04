@@ -4,10 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/get-session";
 import { PedidosTabs } from "@/components/orders/pedidos-tabs";
 import { ContributionMenu, type ContributionHistoryItem } from "@/components/orders/contribution-menu";
-import { LateReportGroupCard } from "@/components/orders/late-report-group-card";
+import { LateStoreCard } from "@/components/orders/late-store-card";
 import { LateReportsPopup } from "@/components/orders/late-reports-popup";
 import { updateDayOrders } from "./actions";
-import { getUndecidedLateReports, groupLateReports } from "@/lib/orders/late-reports";
+import { getUndecidedLateReports } from "@/lib/orders/late-reports";
+import { groupLateReportsByStore } from "@/lib/orders/group-late-by-store";
 import {
   deliveryDatesInProduction,
   productionDateForDelivery,
@@ -112,8 +113,8 @@ export default async function OrdensPorDiaPage() {
   }
 
   // admins get a grouped inbox of late reports for stragglers that missed an already-generated order
-  const lateGroups = profile.is_admin ? groupLateReports(await getUndecidedLateReports()) : [];
-  const lateCount = new Set(lateGroups.flatMap((group) => group.items.map((item) => `${item.storeId}:${group.deliveryDate}`))).size;
+  const lateStores = profile.is_admin ? groupLateReportsByStore(await getUndecidedLateReports()) : [];
+  const lateCount = lateStores.length;
 
   // delivery_date -> sector -> orders
   const tree = new Map<string, Map<string, ProductionOrder[]>>();
@@ -285,18 +286,18 @@ export default async function OrdensPorDiaPage() {
 
       <PedidosTabs isAdmin={profile.is_admin} />
 
-      {lateGroups.length > 0 && (
+      {lateStores.length > 0 && (
         <>
-          <LateReportsPopup groups={lateGroups} />
-          <div className="space-y-3">
-            {lateGroups.map((group) => (
-              <LateReportGroupCard
-                key={`${group.sectorId}:${group.deliveryDate}`}
-                sectorId={group.sectorId}
-                sectorName={group.sectorName}
-                deliveryDate={group.deliveryDate}
-                deliveryLabel={`${WEEKDAY_LABELS[weekdayOfISODate(group.deliveryDate)]}, ${formatBrDate(group.deliveryDate)}`}
-                items={group.items}
+          <LateReportsPopup stores={lateStores} />
+          <div className="space-y-2">
+            {lateStores.map((store) => (
+              <LateStoreCard
+                key={`${store.storeId}:${store.deliveryDate}`}
+                storeId={store.storeId}
+                storeName={store.storeName}
+                deliveryDate={store.deliveryDate}
+                deliveryLabel={`${WEEKDAY_LABELS[weekdayOfISODate(store.deliveryDate)]}, ${formatBrDate(store.deliveryDate)}`}
+                sentAt={store.sentAt}
               />
             ))}
           </div>

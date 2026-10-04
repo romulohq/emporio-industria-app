@@ -54,7 +54,17 @@ export async function computeDayOrderPlan(
 
   const productsById = new Map(((products ?? []) as Product[]).map((p) => [p.id, p]));
 
-  const excludeIds = options.excludeReportIds ?? new Set<string>();
+  // a late report the admin chose not to consider stays out of every regeneration
+  // (unless a later decision included it)
+  const { data: decisions } = await admin
+    .from("late_report_decisions")
+    .select("report_id, decision, decided_at")
+    .eq("delivery_date", deliveryDateISO)
+    .order("decided_at", { ascending: true });
+  const lastDecision = new Map<string, string>();
+  for (const d of (decisions ?? []) as { report_id: string; decision: string }[]) lastDecision.set(d.report_id, d.decision);
+  const excludeIds = new Set<string>(options.excludeReportIds ?? []);
+  for (const [reportId, decision] of lastDecision) if (decision === "kept") excludeIds.add(reportId);
   const latestReportByStoreProduct = new Map<string, StoreStockReport>();
   for (const report of (reports ?? []) as StoreStockReport[]) {
     if (excludeIds.has(report.id)) continue;

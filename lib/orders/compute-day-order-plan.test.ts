@@ -49,6 +49,7 @@ beforeEach(() => {
   tables.store_product_mins = ["A", "B", "C"].map((s) => ({ store_id: s, product_id: P, min_quantity: 10 }));
   tables.products = [{ id: P, name: "Pudim", sector_id: "s1", unit: "un" }];
   tables.store_stock_reports = [];
+  tables.late_report_decisions = [];
 });
 
 describe("computeDayOrderPlan fallback to the last order", () => {
@@ -91,5 +92,29 @@ describe("computeDayOrderPlan fallback to the last order", () => {
     ];
     const plan = await computeDayOrderPlan(MONDAY, { excludeReportIds: new Set(["late"]) });
     expect(plan.byProduct.get(P)!.get("A")).toEqual({ quantity: 3, reportId: "older" });
+  });
+});
+
+describe("reports the admin chose not to consider", () => {
+  it("stay out of the plan, falling back to the store's earlier order", async () => {
+    tables.store_stock_reports = [
+      report("older", "A", 7, "2026-09-29", "2026-09-28T10:00:00Z", "sub-old"),
+      report("late", "A", 1, MONDAY, "2026-10-03T10:00:00Z", "sub-late"),
+    ];
+    tables.late_report_decisions = [
+      { report_id: "late", decision: "kept", delivery_date: MONDAY, decided_at: "2026-10-03T12:00:00Z" },
+    ];
+    const plan = await computeDayOrderPlan(MONDAY);
+    expect(plan.byProduct.get(P)!.get("A")).toEqual({ quantity: 3, reportId: "older" });
+  });
+
+  it("a later decision to include wins over an earlier one to keep it out", async () => {
+    tables.store_stock_reports = [report("late", "A", 1, MONDAY, "2026-10-03T10:00:00Z", "sub-late")];
+    tables.late_report_decisions = [
+      { report_id: "late", decision: "kept", delivery_date: MONDAY, decided_at: "2026-10-03T12:00:00Z" },
+      { report_id: "late", decision: "regenerated", delivery_date: MONDAY, decided_at: "2026-10-03T13:00:00Z" },
+    ];
+    const plan = await computeDayOrderPlan(MONDAY);
+    expect(plan.byProduct.get(P)!.get("A")).toEqual({ quantity: 9, reportId: "late" });
   });
 });
