@@ -68,6 +68,18 @@ export function ProductForm({
             required
           />
         </div>
+        <div>
+          <Label htmlFor="units_per_box">Unidades por caixa</Label>
+          <Input
+            id="units_per_box"
+            name="units_per_box"
+            type="number"
+            step="0.001"
+            min={0.001}
+            defaultValue={product?.units_per_box ?? 1}
+            required
+          />
+        </div>
         {!product && (
           <div>
             <Label htmlFor="current_quantity">Estoque inicial</Label>

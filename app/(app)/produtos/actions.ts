@@ -17,6 +17,7 @@ export async function createProduct(_prevState: FormState, formData: FormData): 
     sku: formData.get("sku"),
     unit: formData.get("unit"),
     min_quantity: formData.get("min_quantity"),
+    units_per_box: formData.get("units_per_box") || undefined,
     current_quantity: formData.get("current_quantity"),
     production_group: formData.get("production_group"),
   });
@@ -50,6 +51,7 @@ export async function updateProduct(_prevState: FormState, formData: FormData): 
     sku: formData.get("sku"),
     unit: formData.get("unit"),
     min_quantity: formData.get("min_quantity"),
+    units_per_box: formData.get("units_per_box") || undefined,
     production_group: formData.get("production_group"),
   });
 
@@ -66,6 +68,7 @@ export async function updateProduct(_prevState: FormState, formData: FormData): 
       sku: parsed.data.sku ?? null,
       unit: parsed.data.unit,
       min_quantity: parsed.data.min_quantity,
+      units_per_box: parsed.data.units_per_box,
       production_group: parsed.data.production_group,
     })
     .eq("id", id);

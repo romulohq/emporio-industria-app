@@ -138,11 +138,25 @@ export type Product = {
   unit: string;
   current_quantity: number;
   min_quantity: number;
+  units_per_box: number;
   production_group: number | null;
   responsible_id: string | null;
   is_low_stock: boolean;
   active: boolean;
   created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type StockCount = {
+  id: string;
+  count_date: string;
+  product_id: string;
+  sector_id: string;
+  boxes: number;
+  units_per_box: number;
+  stock_units: number;
+  counted_by: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -222,6 +236,12 @@ export type Database = {
         Row: Product;
         Insert: Partial<Product>;
         Update: Partial<Product>;
+        Relationships: Relationship[];
+      };
+      stock_counts: {
+        Row: StockCount;
+        Insert: Partial<StockCount>;
+        Update: Partial<StockCount>;
         Relationships: Relationship[];
       };
       production_orders: {

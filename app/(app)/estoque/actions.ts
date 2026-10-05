@@ -46,7 +46,7 @@ export async function createMovement(_prevState: FormState, formData: FormData):
     };
   }
 
-  revalidatePath("/estoque");
+  revalidatePath("/estoque/saldo");
   revalidatePath("/historico");
-  redirect("/estoque");
+  redirect("/estoque/saldo");
 }

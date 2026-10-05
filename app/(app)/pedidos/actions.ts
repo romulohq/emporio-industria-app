@@ -53,6 +53,6 @@ export async function updateOrderStatus(formData: FormData) {
     .eq("id", parsed.data.order_id);
 
   revalidatePath("/pedidos");
-  revalidatePath("/estoque");
+  revalidatePath("/estoque"); revalidatePath("/estoque/saldo");
   revalidatePath("/historico");
 }
