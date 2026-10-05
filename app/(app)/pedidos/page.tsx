@@ -2,7 +2,7 @@ import { requireUser } from "@/lib/auth/get-session";
 import { PedidosTabs } from "@/components/orders/pedidos-tabs";
 import { getTodaySendMonitor, type SendMonitorStatus } from "@/lib/orders/send-monitor";
 import { formatBrDate } from "@/lib/dates";
-import { WEEKDAY_LABELS, formatTime } from "@/lib/format/labels";
+import { WEEKDAY_LABELS, formatTime, formatDateTime } from "@/lib/format/labels";
 
 type MonitorLabelInput = { deadlineTime: string; submittedAt: string | null; carriedOver: boolean };
 
@@ -14,10 +14,7 @@ const STATUS_CONFIG: Record<SendMonitorStatus, { dot: string; label: (e: Monitor
   },
   late: {
     dot: "bg-violet-500",
-    label: (e) =>
-      e.carriedOver
-        ? `Enviado atrasado (de ontem), às ${formatTime(e.submittedAt!)}`
-        : `Enviado atrasado, às ${formatTime(e.submittedAt!)}`,
+    label: (e) => `Enviado atrasado, aguardando aprovação · ${formatDateTime(e.submittedAt!)}`,
     card: "border-violet-200 bg-violet-50",
   },
   pending: {

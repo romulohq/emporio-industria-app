@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronRight, Printer, RefreshCw } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { classifyCycleReports } from "@/lib/orders/classify-send";
 import { requireUser } from "@/lib/auth/get-session";
 import { PedidosTabs } from "@/components/orders/pedidos-tabs";
 import { ContributionMenu, type ContributionHistoryItem } from "@/components/orders/contribution-menu";
@@ -27,7 +28,7 @@ import type {
   StoreStockReport,
 } from "@/lib/types/database.types";
 
-type StoreSendState = "on_time" | "late" | "missing" | "none";
+type StoreSendState = "on_time" | "late" | "none";
 
 type CycleReport = {
   id: string;
@@ -41,15 +42,13 @@ type CycleReport = {
 const SEND_STATE_DOT: Record<StoreSendState, string> = {
   on_time: "bg-green-500",
   late: "bg-orange-400",
-  missing: "bg-red-500",
   none: "bg-neutral-300",
 };
 
 const SEND_STATE_LEGEND = [
   { state: "on_time", label: "Pedido enviado no prazo" },
   { state: "late", label: "Enviado atrasado, aguardando aprovação" },
-  { state: "missing", label: "Pedido não enviado, usando o último pedido" },
-  { state: "none", label: "Pedido ainda não enviado, sem pedido anterior" },
+  { state: "none", label: "Pedido ainda não enviado" },
 ] as const;
 
 export default async function OrdensPorDiaPage() {
@@ -184,63 +183,13 @@ export default async function OrdensPorDiaPage() {
     }
   }
 
-  // per store+delivery: sent on time; or sent late and (still) waiting for approval; or sent late
-  // and approved (the order was updated with it — counts like on time); or sent late and refused
-  const reportedStoreIdsByDate = new Map<string, Set<string>>();
-  const inTimeSentAt = new Map<string, number>();
-  const approvedSentAt = new Map<string, number>();
-  const awaitingSentAt = new Map<string, number>();
-  const refusedSentAt = new Map<string, number>();
-  const autoSentAt = new Map<string, number>(); // late rows with nothing to approve (no order to change)
-  const earliest = (map: Map<string, number>, key: string, value: number) =>
-    map.set(key, Math.min(map.get(key) ?? Infinity, value));
+  const reportsByKey = new Map<string, CycleReport[]>();
   for (const r of (cycleReports ?? []) as CycleReport[]) {
     if (!r.delivery_date) continue;
-    const set = reportedStoreIdsByDate.get(r.delivery_date) ?? new Set<string>();
-    set.add(r.store_id);
-    reportedStoreIdsByDate.set(r.delivery_date, set);
-
-    const sentAt = new Date(r.created_at).getTime();
     const key = `${r.delivery_date}:${r.store_id}`;
-    const inTime = sentAt <= sendDeadlineForDelivery(r.delivery_date).getTime();
-    if (inTime) earliest(inTimeSentAt, key, sentAt);
-    else if (r.late_for_order_id === null) earliest(autoSentAt, key, sentAt);
-    else if (!r.late_acknowledged) earliest(awaitingSentAt, key, sentAt);
-    else if (lastDecisionByReport.get(r.id) === "kept") earliest(refusedSentAt, key, sentAt);
-    else earliest(approvedSentAt, key, sentAt);
+    reportsByKey.set(key, [...(reportsByKey.get(key) ?? []), r]);
   }
 
-  // precedence: on time > waiting for approval > approved > refused > nothing to approve
-  const sentStateFor = (key: string): { state: "on_time" | "late" | "missing"; sentAt: number } | null => {
-    if (inTimeSentAt.has(key)) return { state: "on_time", sentAt: inTimeSentAt.get(key)! };
-    if (awaitingSentAt.has(key)) return { state: "late", sentAt: awaitingSentAt.get(key)! };
-    if (approvedSentAt.has(key)) return { state: "on_time", sentAt: approvedSentAt.get(key)! };
-    if (refusedSentAt.has(key)) return { state: "missing", sentAt: refusedSentAt.get(key)! };
-    if (autoSentAt.has(key)) return { state: "on_time", sentAt: autoSentAt.get(key)! };
-    return null;
-  };
-
-  // stores that never sent any order to the system, for any delivery (new stores)
-  const neverReportedStoreIds = new Set<string>();
-  const lastSentAtByStore = new Map<string, number>();
-  const storesWithoutCycleReport = new Set<string>();
-  for (const date of checkDates) {
-    for (const id of scheduledStoreIdsByDate.get(date) ?? []) {
-      if (!reportedStoreIdsByDate.get(date)?.has(id)) storesWithoutCycleReport.add(id);
-    }
-  }
-  await Promise.all(
-    [...storesWithoutCycleReport].map(async (storeId) => {
-      const { data } = await supabase
-        .from("store_stock_reports")
-        .select("created_at")
-        .eq("store_id", storeId)
-        .order("created_at", { ascending: false })
-        .limit(1);
-      if (!data?.length) neverReportedStoreIds.add(storeId);
-      else lastSentAtByStore.set(storeId, new Date(data[0].created_at).getTime());
-    })
-  );
 
   const allScheduledStoreIds = new Set<string>();
   for (const ids of scheduledStoreIdsByDate.values()) for (const id of ids) allScheduledStoreIds.add(id);
@@ -270,28 +219,22 @@ export default async function OrdensPorDiaPage() {
     }
   }
 
-  // full set of stores this cycle's order is drawing from, so a human reviewing the
-  // order can immediately see who's considered without having to hunt per-product
   // green = sent on time, or sent late and approved (the order was updated with it);
-  // orange = sent late and still waiting for an admin's approval;
-  // red = nothing (usable) sent for this delivery — never sent, or the late order was refused —
-  // while an earlier order is in the system; gray = this store has never sent any order
-  // listed green, orange, red, gray; within each, by send time (oldest first)
-  const STATE_RANK: Record<StoreSendState, number> = { on_time: 0, late: 1, missing: 2, none: 3 };
+  // orange = sent late and still waiting for an admin's approval; gray = anything else (not sent,
+  // refused, or never sent). Listed green, orange, gray; green/orange oldest send first.
+  const STATE_RANK: Record<StoreSendState, number> = { on_time: 0, late: 1, none: 2 };
   const consideredByDate = new Map<string, { name: string; state: StoreSendState }[]>();
   for (const date of checkDates) {
     const scheduled = scheduledStoreIdsByDate.get(date) ?? new Set<string>();
+    const deadlineMs = sendDeadlineForDelivery(date).getTime();
     const list = [...scheduled]
       .map((id) => {
-        const sent = sentStateFor(`${date}:${id}`);
-        const state: StoreSendState = sent ? sent.state : neverReportedStoreIds.has(id) ? "none" : "missing";
-        const sentAt = sent ? sent.sentAt : state === "missing" ? lastSentAtByStore.get(id) : undefined;
-        return { name: storeNameById[id] ?? "?", state, sentAt: sentAt ?? Infinity };
+        const classified = classifyCycleReports(reportsByKey.get(`${date}:${id}`) ?? [], deadlineMs, lastDecisionByReport);
+        const state: StoreSendState =
+          classified?.state === "on_time" ? "on_time" : classified?.state === "late" ? "late" : "none";
+        return { name: storeNameById[id] ?? "?", state, sentAt: state === "none" ? Infinity : classified!.sentAt };
       })
-      .sort(
-        (a, b) =>
-          STATE_RANK[a.state] - STATE_RANK[b.state] || a.sentAt - b.sentAt || a.name.localeCompare(b.name)
-      );
+      .sort((a, b) => STATE_RANK[a.state] - STATE_RANK[b.state] || a.sentAt - b.sentAt || a.name.localeCompare(b.name));
     consideredByDate.set(date, list);
   }
 
