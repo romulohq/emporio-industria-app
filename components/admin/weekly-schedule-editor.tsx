@@ -179,6 +179,8 @@ export function WeeklyScheduleEditor({
 
   return (
     <>
+      {/* the delivery grid is the one print that needs landscape; everything else stays portrait */}
+      <style>{"@media print { @page { size: A4 landscape; margin: 10mm; } }"}</style>
       <form action={saveAction} className="space-y-4">
         <input type="hidden" name="unit_id" value={unitId} />
         <input type="hidden" name="schedule" value={scheduleJson} />
