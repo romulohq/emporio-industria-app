@@ -74,7 +74,7 @@ export default async function RelatarEstoquePage({
   const boundAction = submitStockReport.bind(null, token);
 
   return (
-    <div className="min-h-screen bg-neutral-50 px-4 py-8">
+    <div className="min-h-screen bg-neutral-50 px-4 py-8 pb-[55vh] sm:pb-8">
       <div className="mx-auto max-w-xl space-y-6">
         <div>
           <h1 className="text-xl font-bold text-neutral-900">Relatar estoque — {store.name}</h1>

@@ -47,6 +47,12 @@ export function StockReportForm({
                   name={`qty_${product.id}`}
                   placeholder={`Qtd. (${product.unit})`}
                   className="w-32"
+                  enterKeyHint="next"
+                  // after the keyboard slides up, bring the field to the middle so what is typed stays visible
+                  onFocus={(e) => {
+                    const field = e.currentTarget;
+                    setTimeout(() => field.scrollIntoView({ block: "center", behavior: "smooth" }), 350);
+                  }}
                   required
                 />
               </div>

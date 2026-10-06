@@ -137,7 +137,7 @@ function GroupRows({
                 inputMode="decimal"
                 value={raw}
                 onChange={(e) => setValues((prev) => ({ ...prev, [row.id]: e.target.value }))}
-                className="w-20 rounded-md border border-neutral-300 px-2 py-1 text-right text-sm tabular-nums focus:border-orange-500 focus:outline-none"
+                className="w-20 rounded-md border border-neutral-300 px-2 py-1 text-right text-base tabular-nums focus:border-orange-500 sm:text-sm focus:outline-none"
               />
             </td>
             <td className="px-3 py-1.5 text-right font-medium tabular-nums text-neutral-900">
