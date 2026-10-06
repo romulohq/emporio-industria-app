@@ -339,19 +339,19 @@ export default async function OrdensPorDiaPage() {
                 <span className="font-medium text-neutral-500">Lojas consideradas nesta ordem</span>
                 {SEND_STATE_LEGEND.map((item) => (
                   <span key={item.state} className="flex items-center gap-1">
-                    <span className={`h-1.5 w-1.5 rounded-full ${SEND_STATE_DOT[item.state]}`} />
+                    <span className={`h-2 w-2 rounded-full ${SEND_STATE_DOT[item.state]}`} />
                     {item.label}
                   </span>
                 ))}
               </div>
-              <div className="flex flex-wrap items-center gap-2 text-xs">
+              <div className="flex flex-wrap items-center gap-2 text-sm">
                 {consideredByDate.get(deliveryDate)!.map((store) => (
                   <span
                     key={store.name}
                     title={SEND_STATE_LEGEND.find((i) => i.state === store.state)?.label}
-                    className="flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2 py-0.5"
+                    className="flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1"
                   >
-                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${SEND_STATE_DOT[store.state]}`} />
+                    <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${SEND_STATE_DOT[store.state]}`} />
                     {store.name}
                   </span>
                 ))}
@@ -422,13 +422,13 @@ export default async function OrdensPorDiaPage() {
                         .sort((a, b) => a.name.localeCompare(b.name)),
                     ];
                     return (
-                      <details key={order.id} className="group px-4 py-2">
+                      <details key={order.id} className="group px-4 py-1.5">
                         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
                           <span className="flex items-center gap-1.5">
-                            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-neutral-400 transition-transform group-open:rotate-90" />
-                            <span className="text-sm font-medium text-neutral-800">{product?.name ?? "—"}</span>
+                            <ChevronRight className="h-3 w-3 shrink-0 text-neutral-400 transition-transform group-open:rotate-90" />
+                            <span className="text-[13px] font-medium text-neutral-800">{product?.name ?? "—"}</span>
                           </span>
-                          <span className="text-sm font-semibold text-neutral-800">
+                          <span className="text-[13px] font-semibold text-neutral-800">
                             {product ? formatQuantity(order.quantity, product.unit) : order.quantity}
                           </span>
                         </summary>
