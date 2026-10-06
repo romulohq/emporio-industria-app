@@ -174,5 +174,13 @@ export async function getTodaySendMonitor(): Promise<SendMonitorEntry[]> {
     entries.push(makeEntry(storeId, deliveryDate, "late", classified.sentAt, false));
   }
 
-  return entries.sort((a, b) => a.storeName.localeCompare(b.storeName));
+  // most urgent first: overdue (not sent past the deadline), then late orders awaiting approval,
+  // then stores still within their deadline, then the ones already sent in time
+  const priority: Record<SendMonitorStatus, number> = { overdue: 0, late: 1, pending: 2, on_time: 3 };
+  return entries.sort(
+    (x, y) =>
+      priority[x.status] - priority[y.status] ||
+      x.deliveryDate.localeCompare(y.deliveryDate) ||
+      x.storeName.localeCompare(y.storeName)
+  );
 }
