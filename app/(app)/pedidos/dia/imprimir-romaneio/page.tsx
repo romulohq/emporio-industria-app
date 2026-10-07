@@ -6,7 +6,11 @@ import { StorePicker } from "@/components/orders/store-picker";
 import { CollaboratorSheet, type CollaboratorSheetItem } from "@/components/orders/collaborator-sheet";
 import { weekdayOfISODate, formatBrDate } from "@/lib/dates";
 import { WEEKDAY_LABELS } from "@/lib/format/labels";
-import type { Product, ProductionOrder, ProductionOrderContribution, Store } from "@/lib/types/database.types";
+import { compareSectorNames } from "@/lib/format/sectors";
+import type { Product, ProductionOrder, ProductionOrderContribution, Sector, Store } from "@/lib/types/database.types";
+
+// how each sector is called on the store's delivery sheet
+const GROUP_LABELS: Record<string, string> = { "Pão": "Pães", Confeitaria: "Confeitaria", Embalagens: "Embalagens" };
 
 type Sheet = { key: string; title: string; items: CollaboratorSheetItem[] };
 
@@ -34,14 +38,16 @@ export default async function ImprimirRomaneioPage({
   const orderIds = ordersList.map((o) => o.id);
   const productIds = ordersList.map((o) => o.product_id);
 
-  const [{ data: contributions }, { data: products }] = await Promise.all([
+  const [{ data: contributions }, { data: products }, { data: sectors }] = await Promise.all([
     orderIds.length
       ? supabase.from("production_order_contributions").select("*").in("order_id", orderIds)
       : Promise.resolve({ data: [] as ProductionOrderContribution[] }),
     productIds.length
       ? supabase.from("products").select("*").in("id", productIds)
       : Promise.resolve({ data: [] as Product[] }),
+    supabase.from("sectors").select("id, name"),
   ]);
+  const sectorNameById = Object.fromEntries(((sectors ?? []) as Pick<Sector, "id" | "name">[]).map((x) => [x.id, x.name]));
 
   const contributionsList = (contributions ?? []) as ProductionOrderContribution[];
   const storeIds = [...new Set(contributionsList.map((c) => c.store_id))];
@@ -53,18 +59,30 @@ export default async function ImprimirRomaneioPage({
   const ordersById = Object.fromEntries(ordersList.map((o) => [o.id, o]));
   const storesById = Object.fromEntries(((stores ?? []) as Store[]).map((s) => [s.id, s]));
 
-  const itemsByStore = new Map<string, CollaboratorSheetItem[]>();
+  const itemsByStore = new Map<string, (CollaboratorSheetItem & { groupKey?: string })[]>();
   for (const contribution of contributionsList) {
     const order = ordersById[contribution.order_id];
     const product = order ? productsById[order.product_id] : undefined;
     if (!order || !product) continue;
 
     const list = itemsByStore.get(contribution.store_id) ?? [];
-    list.push({ id: contribution.order_id, name: product.name, unit: product.unit, quantity: contribution.quantity });
+    const sectorName = sectorNameById[product.sector_id] ?? "Outros";
+    list.push({
+      id: contribution.order_id,
+      name: product.name,
+      unit: product.unit,
+      quantity: contribution.quantity,
+      group: GROUP_LABELS[sectorName] ?? sectorName,
+      groupKey: sectorName,
+    });
     itemsByStore.set(contribution.store_id, list);
   }
 
-  const sortByName = (items: CollaboratorSheetItem[]) => [...items].sort((a, b) => a.name.localeCompare(b.name));
+  // grouped by category (Pães, Bolos e confeitaria, Embalagens), alphabetical inside each
+  const sortByName = (items: (CollaboratorSheetItem & { groupKey?: string })[]) =>
+    [...items].sort(
+      (a, b) => compareSectorNames(a.groupKey ?? "", b.groupKey ?? "") || a.name.localeCompare(b.name)
+    );
 
   const sheets: Sheet[] = storeIds
     .map((storeId) => ({
