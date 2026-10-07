@@ -161,6 +161,31 @@ export type StockCount = {
   updated_at: string;
 };
 
+export type ScheduleItem = {
+  id: string;
+  section: "salgados" | "folheados" | "paes" | "cozinha";
+  name: string;
+  position: number;
+  active: boolean;
+  created_at: string;
+};
+
+export type ScheduleWeek = {
+  week_start: string;
+  notes: string;
+  holidays: number[];
+  updated_at: string;
+};
+
+export type ScheduleCell = {
+  week_start: string;
+  item_id: string;
+  weekday: number;
+  label: string;
+  updated_by: string | null;
+  updated_at: string;
+};
+
 export type ProductionOrder = {
   id: string;
   product_id: string;
@@ -242,6 +267,24 @@ export type Database = {
         Row: StockCount;
         Insert: Partial<StockCount>;
         Update: Partial<StockCount>;
+        Relationships: Relationship[];
+      };
+      schedule_items: {
+        Row: ScheduleItem;
+        Insert: Partial<ScheduleItem>;
+        Update: Partial<ScheduleItem>;
+        Relationships: Relationship[];
+      };
+      schedule_weeks: {
+        Row: ScheduleWeek;
+        Insert: Partial<ScheduleWeek>;
+        Update: Partial<ScheduleWeek>;
+        Relationships: Relationship[];
+      };
+      schedule_cells: {
+        Row: ScheduleCell;
+        Insert: Partial<ScheduleCell>;
+        Update: Partial<ScheduleCell>;
         Relationships: Relationship[];
       };
       production_orders: {

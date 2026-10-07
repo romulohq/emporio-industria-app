@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 const TABS = [
   { href: "/estoque", label: "Contagem do dia" },
   { href: "/estoque/mes", label: "Visão do mês" },
+  { href: "/estoque/cronograma", label: "Cronograma de produção" },
   { href: "/estoque/saldo", label: "Saldo e movimentações" },
 ];
 
