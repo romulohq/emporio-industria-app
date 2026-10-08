@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/get-session";
 import { EstoqueTabs } from "@/components/stock/estoque-tabs";
 import { StockCountForm, type CountRow } from "@/components/stock/stock-count-form";
 import { getOsorioCatalog } from "@/lib/stock/osorio";
@@ -8,8 +9,11 @@ export default async function ContagemDoDiaPage({ searchParams }: { searchParams
   const { data: dateParam } = await searchParams;
   const date = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : fortalezaDateISO();
 
+  const { profile, sectors: mySectors } = await requireUser();
   const supabase = await createClient();
   const { sectors, products } = await getOsorioCatalog(supabase);
+  const osorioSectorIds = new Set(sectors.map((s) => s.id));
+  const canEdit = profile.is_admin || mySectors.some((s) => osorioSectorIds.has(s.id));
 
   const { data: counts } = products.length
     ? await supabase
@@ -51,7 +55,7 @@ export default async function ContagemDoDiaPage({ searchParams }: { searchParams
       {groups.length === 0 ? (
         <p className="text-sm text-neutral-500">Nenhum produto cadastrado na Fábrica Osório de Paiva ainda.</p>
       ) : (
-        <StockCountForm key={date} date={date} groups={groups} />
+        <StockCountForm key={date} date={date} groups={groups} canEdit={canEdit} />
       )}
     </div>
   );

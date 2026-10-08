@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { unitOptionsFor } from "@/lib/format/units";
 import type { FormState } from "@/app/(app)/produtos/actions";
 import type { Product, Sector } from "@/lib/types/database.types";
 
@@ -51,7 +52,13 @@ export function ProductForm({
         </div>
         <div>
           <Label htmlFor="unit">Unidade</Label>
-          <Input id="unit" name="unit" defaultValue={product?.unit ?? "und"} required />
+          <Select id="unit" name="unit" defaultValue={product?.unit ?? "und"} required>
+            {unitOptionsFor(product?.unit).map((u) => (
+              <option key={u.value} value={u.value}>
+                {u.label}
+              </option>
+            ))}
+          </Select>
         </div>
       </div>
 

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/get-session";
 import { createClient } from "@/lib/supabase/server";
-import { saveStockCountSchema } from "@/lib/validations/stock-count";
+import { saveStockCountSchema, updateUnitSchema } from "@/lib/validations/stock-count";
 import { stockUnits } from "@/lib/stock/coverage";
 
 export type SaveCountState = { error?: string; saved?: number } | undefined;
@@ -71,4 +71,18 @@ export async function saveStockCount(_prev: SaveCountState, formData: FormData):
   revalidatePath("/estoque");
   revalidatePath("/estoque/mes");
   return { saved: rows.length };
+}
+
+/** Changes a product's unit of measure (unit, kg or liter); counts and minimums stay as typed. */
+export async function updateProductUnit(input: unknown): Promise<{ error?: string; ok?: boolean }> {
+  await requireUser();
+  const parsed = updateUnitSchema.safeParse(input);
+  if (!parsed.success) return { error: "Medida inválida." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("products").update({ unit: parsed.data.unit }).eq("id", parsed.data.product_id);
+  if (error) return { error: "Não foi possível alterar a medida. Verifique se você tem acesso ao setor." };
+
+  for (const path of ["/estoque", "/estoque/mes", "/estoque/saldo", "/produtos"]) revalidatePath(path);
+  return { ok: true };
 }

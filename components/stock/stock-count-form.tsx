@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Printer } from "lucide-react";
 import { CoverageBar } from "@/components/stock/coverage-bar";
-import { saveStockCount, type SaveCountState } from "@/app/(app)/estoque/contagem-actions";
+import { saveStockCount, updateProductUnit, type SaveCountState } from "@/app/(app)/estoque/contagem-actions";
+import { unitOptionsFor } from "@/lib/format/units";
 import { coverageOf, stockUnits } from "@/lib/stock/coverage";
 
 export type CountRow = {
@@ -23,15 +24,36 @@ const fmt = (n: number) => new Intl.NumberFormat("pt-BR", { maximumFractionDigit
 export function StockCountForm({
   date,
   groups,
+  canEdit,
 }: {
   date: string;
   groups: { sectorName: string; rows: CountRow[] }[];
+  canEdit: boolean;
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState<SaveCountState, FormData>(saveStockCount, undefined);
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(groups.flatMap((g) => g.rows).map((r) => [r.id, r.boxes === null ? "" : String(r.boxes)]))
   );
+
+  // unit of measure per product, changed in place (saved right away)
+  const [units, setUnits] = useState<Record<string, string>>({});
+  const [unitError, setUnitError] = useState<string | null>(null);
+  async function changeUnit(productId: string, unit: string) {
+    const previous = units[productId];
+    setUnits((prev) => ({ ...prev, [productId]: unit }));
+    setUnitError(null);
+    const result = await updateProductUnit({ product_id: productId, unit });
+    if (result.error) {
+      setUnitError(result.error);
+      setUnits((prev) => {
+        const next = { ...prev };
+        if (previous === undefined) delete next[productId];
+        else next[productId] = previous;
+        return next;
+      });
+    }
+  }
 
   const entries = useMemo(
     () =>
@@ -75,6 +97,7 @@ export function StockCountForm({
       </div>
 
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+      {unitError && <p className="text-sm text-red-600">{unitError}</p>}
       {state?.saved !== undefined && !state.error && (
         <p className="text-sm text-green-700">Contagem salva — {state.saved} produtos.</p>
       )}
@@ -85,7 +108,8 @@ export function StockCountForm({
             <tr>
               <th className="px-4 py-2">Produto</th>
               <th className="px-3 py-2 text-right">Mínimo</th>
-              <th className="px-3 py-2 text-right">Und/cx</th>
+              <th className="px-3 py-2 text-right">Por caixa</th>
+              <th className="px-3 py-2">Medida</th>
               <th className="px-3 py-2">Caixas</th>
               <th className="px-3 py-2 text-right">Estoque</th>
               <th className="px-3 py-2 text-right">Falta</th>
@@ -94,7 +118,7 @@ export function StockCountForm({
           </thead>
           <tbody>
             {groups.map((group) => (
-              <GroupRows key={group.sectorName} group={group} values={values} setValues={setValues} />
+              <GroupRows key={group.sectorName} group={group} values={values} setValues={setValues} units={units} changeUnit={changeUnit} canEdit={canEdit} />
             ))}
           </tbody>
         </table>
@@ -107,15 +131,21 @@ function GroupRows({
   group,
   values,
   setValues,
+  units,
+  changeUnit,
+  canEdit,
 }: {
   group: { sectorName: string; rows: CountRow[] };
   values: Record<string, string>;
   setValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  units: Record<string, string>;
+  changeUnit: (productId: string, unit: string) => void;
+  canEdit: boolean;
 }) {
   return (
     <>
       <tr className="bg-neutral-50/70">
-        <td colSpan={7} className="px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+        <td colSpan={8} className="px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
           {group.sectorName}
         </td>
       </tr>
@@ -130,6 +160,24 @@ function GroupRows({
             <td className="px-3 py-1.5 text-right tabular-nums text-neutral-500">{fmt(row.min)}</td>
             <td className="px-3 py-1.5 text-right tabular-nums text-neutral-400">{fmt(row.unitsPerBox)}</td>
             <td className="px-3 py-1.5">
+              {canEdit ? (
+                <select
+                  value={units[row.id] ?? row.unit}
+                  onChange={(ev) => changeUnit(row.id, ev.target.value)}
+                  aria-label={`Medida de ${row.name}`}
+                  className="rounded-md border border-neutral-200 bg-white px-1.5 py-1 text-base text-neutral-700 sm:text-xs"
+                >
+                  {unitOptionsFor(row.unit).map((u) => (
+                    <option key={u.value} value={u.value}>
+                      {u.value}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span className="text-xs text-neutral-500">{units[row.id] ?? row.unit}</span>
+              )}
+            </td>
+            <td className="px-3 py-1.5">
               <input
                 type="number"
                 min={0}
@@ -141,7 +189,7 @@ function GroupRows({
               />
             </td>
             <td className="px-3 py-1.5 text-right font-medium tabular-nums text-neutral-900">
-              {stock === null ? "—" : `${fmt(stock)} ${row.unit}`}
+              {stock === null ? "—" : `${fmt(stock)} ${units[row.id] ?? row.unit}`}
             </td>
             <td className="px-3 py-1.5 text-right tabular-nums text-neutral-500">
               {cov && cov.missing > 0 ? fmt(cov.missing) : "—"}

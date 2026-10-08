@@ -9,3 +9,8 @@ export const saveStockCountSchema = z.object({
   count_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   entries: z.array(stockCountEntrySchema).min(1),
 });
+
+export const updateUnitSchema = z.object({
+  product_id: z.string().uuid(),
+  unit: z.string().trim().min(1).max(10),
+});
