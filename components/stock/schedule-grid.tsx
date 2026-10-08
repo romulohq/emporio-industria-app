@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, Copy, Pencil, Plus, Printer, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronRight, Copy, Pencil, Plus, Printer, X } from "lucide-react";
 import {
   addScheduleItem,
   copyPreviousScheduleWeek,
@@ -69,6 +69,16 @@ export function ScheduleGrid({
   const [custom, setCustom] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [printedAt, setPrintedAt] = useState("");
+  // blocks start expanded; clicking a block's title collapses it (printing always shows everything)
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  function toggleBlock(key: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
   const [, startTransition] = useTransition();
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -222,7 +232,17 @@ export function ScheduleGrid({
               <thead>
                 <tr>
                   <th className={`px-3 py-2 text-xs font-bold uppercase tracking-wide text-neutral-900 print:py-1.5 print:text-[10px] print:tracking-widest print:text-white ${style.title}`}>
-                    {section.label}
+                    <button
+                      type="button"
+                      onClick={() => toggleBlock(section.key)}
+                      aria-expanded={!collapsed.has(section.key)}
+                      className="flex items-center gap-1.5 uppercase"
+                    >
+                      <ChevronRight
+                        className={`h-3.5 w-3.5 transition-transform print:hidden ${collapsed.has(section.key) ? "" : "rotate-90"}`}
+                      />
+                      {section.label}
+                    </button>
                   </th>
                   {SCHEDULE_WEEKDAYS.map((d, i) => (
                     <th key={d.n} className={`w-[14%] px-2 py-1.5 text-center print:py-1 ${style.day}`}>
@@ -241,7 +261,7 @@ export function ScheduleGrid({
                   ))}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className={collapsed.has(section.key) ? "hidden print:table-row-group" : undefined}>
                 {section.items.map((item, index) => (
                   <tr key={item.id} className="break-inside-avoid border-t border-neutral-100 print:border-neutral-200 print:even:bg-neutral-50">
                     <td className="px-3 py-1 text-neutral-900 print:py-px">

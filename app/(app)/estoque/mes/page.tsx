@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { EstoqueTabs } from "@/components/stock/estoque-tabs";
 import { getOsorioCatalog } from "@/lib/stock/osorio";
+import { MonthSectorRows, type MonthCell } from "@/components/stock/month-sector-rows";
 import { coverageOf } from "@/lib/stock/coverage";
 import { fortalezaDateISO, weekdayOfISODate } from "@/lib/dates";
 import { WEEKDAY_SHORT_LABELS } from "@/lib/format/labels";
@@ -117,16 +118,28 @@ export default async function VisaoDoMesPage({ searchParams }: { searchParams: P
                 const rows = products.filter((p) => p.sector_id === sector.id);
                 if (rows.length === 0) return null;
                 return (
-                  <SectorRows
+                  <MonthSectorRows
                     key={sector.id}
                     name={sector.name}
                     colSpan={dateList.length + 2}
-                    rows={rows.map((p) => ({
-                      id: p.id,
-                      name: p.name,
-                      min: Number(p.min_quantity),
-                      cells: dateList.map((d) => stockByProductDate.get(`${p.id}:${d}`) ?? null),
-                    }))}
+                    rows={rows.map((p) => {
+                      const min = Number(p.min_quantity);
+                      return {
+                        id: p.id,
+                        name: p.name,
+                        min: fmt(min),
+                        cells: dateList.map((d): MonthCell => {
+                          const stock = stockByProductDate.get(`${p.id}:${d}`);
+                          if (stock === undefined) return null;
+                          const cov = coverageOf(stock, min);
+                          return {
+                            text: fmt(stock),
+                            title: cov.ratio === null ? undefined : `${Math.round(cov.ratio * 100)}% do mínimo`,
+                            className: CELL[cov.level],
+                          };
+                        }),
+                      };
+                    })}
                   />
                 );
               })}
@@ -135,46 +148,5 @@ export default async function VisaoDoMesPage({ searchParams }: { searchParams: P
         </div>
       )}
     </div>
-  );
-}
-
-function SectorRows({
-  name,
-  colSpan,
-  rows,
-}: {
-  name: string;
-  colSpan: number;
-  rows: { id: string; name: string; min: number; cells: (number | null)[] }[];
-}) {
-  return (
-    <>
-      <tr className="bg-neutral-50/70">
-        <td colSpan={colSpan} className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-          {name}
-        </td>
-      </tr>
-      {rows.map((row) => (
-        <tr key={row.id} className="border-t border-neutral-100">
-          <td className="sticky left-0 z-10 whitespace-nowrap bg-white px-3 py-1 text-neutral-800">{row.name}</td>
-          <td className="px-2 py-1 text-right tabular-nums text-neutral-400">{fmt(row.min)}</td>
-          {row.cells.map((stock, i) => {
-            if (stock === null) {
-              return <td key={i} className="px-2 py-1 text-center text-neutral-200">·</td>;
-            }
-            const cov = coverageOf(stock, row.min);
-            return (
-              <td
-                key={i}
-                title={cov.ratio === null ? undefined : `${Math.round(cov.ratio * 100)}% do mínimo`}
-                className={`px-2 py-1 text-right tabular-nums ${CELL[cov.level]}`}
-              >
-                {fmt(stock)}
-              </td>
-            );
-          })}
-        </tr>
-      ))}
-    </>
   );
 }
