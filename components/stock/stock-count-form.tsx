@@ -3,7 +3,7 @@
 import { useActionState, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Pencil, Printer } from "lucide-react";
+import { ChevronRight, Pencil, Printer } from "lucide-react";
 import { CoverageBar } from "@/components/stock/coverage-bar";
 import {
   saveStockCount,
@@ -119,6 +119,16 @@ export function StockCountForm({
     router.refresh();
   }
 
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  function toggleSection(name: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }
+
   const entries = useMemo(
     () =>
       Object.entries(values)
@@ -215,8 +225,7 @@ export function StockCountForm({
               <th className="px-3 py-2">Medida</th>
               <th className="px-3 py-2">Caixas</th>
               <th className="px-3 py-2 text-right">Estoque</th>
-              <th className="px-3 py-2 text-right">Falta</th>
-              <th className="px-4 py-2">Cobertura</th>
+              <th className="w-[30%] min-w-56 px-4 py-2">Abastecimento</th>
             </tr>
           </thead>
           <tbody>
@@ -224,6 +233,8 @@ export function StockCountForm({
               <GroupRows
                 key={group.sectorName}
                 group={group}
+                isCollapsed={collapsed.has(group.sectorName)}
+                onToggle={() => toggleSection(group.sectorName)}
                 values={values}
                 setValues={setValues}
                 units={units}
@@ -244,6 +255,8 @@ export function StockCountForm({
 
 function GroupRows({
   group,
+  isCollapsed,
+  onToggle,
   values,
   setValues,
   units,
@@ -255,6 +268,8 @@ function GroupRows({
   limitsFor,
 }: {
   group: { sectorName: string; rows: CountRow[] };
+  isCollapsed: boolean;
+  onToggle: () => void;
   values: Record<string, string>;
   setValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   units: Record<string, string>;
@@ -270,11 +285,20 @@ function GroupRows({
   return (
     <>
       <tr className="bg-neutral-50/70">
-        <td colSpan={8} className="px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
-          {group.sectorName}
+        <td colSpan={7} className="p-0">
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={!isCollapsed}
+            className="flex w-full items-center gap-1.5 px-4 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-400 hover:text-neutral-600"
+          >
+            <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isCollapsed ? "" : "rotate-90"}`} />
+            {group.sectorName}
+            {isCollapsed && <span className="font-normal normal-case tracking-normal">· {group.rows.length} produtos</span>}
+          </button>
         </td>
       </tr>
-      {group.rows.map((row) => {
+      {!isCollapsed && group.rows.map((row) => {
         const { min, per } = limitsFor(row.id);
         const unit = units[row.id] ?? row.unit;
         const raw = values[row.id] ?? "";
@@ -351,9 +375,6 @@ function GroupRows({
             </td>
             <td className="px-3 py-1.5 text-right font-medium tabular-nums text-neutral-900">
               {stock === null ? "—" : `${fmt(stock)} ${unit}`}
-            </td>
-            <td className="px-3 py-1.5 text-right tabular-nums text-neutral-500">
-              {cov && cov.missing > 0 ? fmt(cov.missing) : "—"}
             </td>
             <td className="px-4 py-1.5">
               {cov ? <CoverageBar ratio={cov.ratio} level={cov.level} /> : <span className="text-neutral-300">—</span>}

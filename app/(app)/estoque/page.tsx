@@ -45,8 +45,8 @@ export default async function ContagemDoDiaPage({ searchParams }: { searchParams
       <div>
         <h1 className="text-xl font-semibold text-neutral-900">Estoque</h1>
         <p className="text-sm text-neutral-500">
-          Contagem da câmara — Fábrica Osório de Paiva. Informe as caixas contadas; o estoque em unidades e a
-          cobertura do mínimo são calculados na hora.
+          Contagem da câmara — Fábrica Osório de Paiva. Informe as caixas contadas; o estoque em unidades e o
+          nível de abastecimento do mínimo são calculados na hora.
         </p>
       </div>
 
