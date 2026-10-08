@@ -3,9 +3,14 @@
 import { useActionState, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Printer } from "lucide-react";
+import { Pencil, Printer } from "lucide-react";
 import { CoverageBar } from "@/components/stock/coverage-bar";
-import { saveStockCount, updateProductUnit, type SaveCountState } from "@/app/(app)/estoque/contagem-actions";
+import {
+  saveStockCount,
+  updateProductLimits,
+  updateProductUnit,
+  type SaveCountState,
+} from "@/app/(app)/estoque/contagem-actions";
 import { unitOptionsFor } from "@/lib/format/units";
 import { coverageOf, stockUnits } from "@/lib/stock/coverage";
 
@@ -19,7 +24,21 @@ export type CountRow = {
   boxes: number | null;
 };
 
+type Limits = { min: number; per: number };
+type Draft = { min: string; per: string };
+
 const fmt = (n: number) => new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 }).format(n);
+
+/** A draft field counts only when it is a valid number (minimum >= 0, per box > 0). */
+function parseDraft(draft: Draft | undefined, saved: Limits): Limits {
+  if (!draft) return saved;
+  const min = draft.min.trim() === "" ? NaN : Number(draft.min);
+  const per = draft.per.trim() === "" ? NaN : Number(draft.per);
+  return {
+    min: Number.isFinite(min) && min >= 0 ? min : saved.min,
+    per: Number.isFinite(per) && per > 0 ? per : saved.per,
+  };
+}
 
 export function StockCountForm({
   date,
@@ -32,8 +51,9 @@ export function StockCountForm({
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState<SaveCountState, FormData>(saveStockCount, undefined);
+  const allRows = useMemo(() => groups.flatMap((g) => g.rows), [groups]);
   const [values, setValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(groups.flatMap((g) => g.rows).map((r) => [r.id, r.boxes === null ? "" : String(r.boxes)]))
+    Object.fromEntries(allRows.map((r) => [r.id, r.boxes === null ? "" : String(r.boxes)]))
   );
 
   // unit of measure per product, changed in place (saved right away)
@@ -53,6 +73,50 @@ export function StockCountForm({
         return next;
       });
     }
+  }
+
+  // minimum stock and units per box: saved values, plus a draft while the edit mode is on
+  const [saved, setSaved] = useState<Record<string, Limits>>(() =>
+    Object.fromEntries(allRows.map((r) => [r.id, { min: r.min, per: r.unitsPerBox }]))
+  );
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<Record<string, Draft>>({});
+  const [limitsError, setLimitsError] = useState<string | null>(null);
+  const [limitsSaving, setLimitsSaving] = useState(false);
+  const [limitsSaved, setLimitsSaved] = useState(false);
+
+  const limitsFor = (id: string): Limits => (editing ? parseDraft(draft[id], saved[id]) : saved[id]);
+
+  const changedLimits = useMemo(
+    () =>
+      Object.entries(draft)
+        .map(([id, d]) => ({ id, next: parseDraft(d, saved[id]) }))
+        .filter(({ id, next }) => next.min !== saved[id].min || next.per !== saved[id].per),
+    [draft, saved]
+  );
+
+  function startEditing() {
+    setDraft(Object.fromEntries(allRows.map((r) => [r.id, { min: String(saved[r.id].min), per: String(saved[r.id].per) }])));
+    setLimitsError(null);
+    setLimitsSaved(false);
+    setEditing(true);
+  }
+
+  async function saveLimits() {
+    setLimitsSaving(true);
+    setLimitsError(null);
+    const result = await updateProductLimits(
+      changedLimits.map(({ id, next }) => ({ product_id: id, min_quantity: next.min, units_per_box: next.per }))
+    );
+    setLimitsSaving(false);
+    if (result.error) {
+      setLimitsError(result.error);
+      return;
+    }
+    setSaved((prev) => ({ ...prev, ...Object.fromEntries(changedLimits.map(({ id, next }) => [id, next])) }));
+    setEditing(false);
+    setLimitsSaved(true);
+    router.refresh();
   }
 
   const entries = useMemo(
@@ -78,7 +142,17 @@ export function StockCountForm({
             className="rounded-md border border-neutral-300 px-2 py-1 text-sm text-neutral-900"
           />
         </label>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {canEdit && !editing && (
+            <button
+              type="button"
+              onClick={startEditing}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+            >
+              <Pencil className="h-4 w-4" />
+              Editar mínimos e caixas
+            </button>
+          )}
           <Link
             href="/estoque/folha"
             className="inline-flex items-center gap-1 text-sm font-medium text-orange-700 hover:text-orange-800"
@@ -86,18 +160,47 @@ export function StockCountForm({
             <Printer className="h-4 w-4" />
             Folha de contagem
           </Link>
-          <button
-            type="submit"
-            disabled={pending || entries.length === 0}
-            className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-700 disabled:opacity-50"
-          >
-            {pending ? "Salvando..." : `Salvar contagem (${entries.length})`}
-          </button>
+          {editing ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                disabled={limitsSaving}
+                className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={saveLimits}
+                disabled={limitsSaving || changedLimits.length === 0}
+                className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-700 disabled:opacity-50"
+              >
+                {limitsSaving ? "Salvando..." : `Salvar alterações (${changedLimits.length})`}
+              </button>
+            </>
+          ) : (
+            <button
+              type="submit"
+              disabled={pending || entries.length === 0}
+              className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-700 disabled:opacity-50"
+            >
+              {pending ? "Salvando..." : `Salvar contagem (${entries.length})`}
+            </button>
+          )}
         </div>
       </div>
 
+      {editing && (
+        <p className="rounded-md bg-orange-50 px-3 py-2 text-xs text-orange-800">
+          Modo de edição: altere o <b>mínimo</b> e a quantidade <b>por caixa</b> de qualquer produto e salve. As contagens
+          já registradas não são recalculadas.
+        </p>
+      )}
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
       {unitError && <p className="text-sm text-red-600">{unitError}</p>}
+      {limitsError && <p className="text-sm text-red-600">{limitsError}</p>}
+      {limitsSaved && !editing && <p className="text-sm text-green-700">Mínimos e quantidades por caixa atualizados.</p>}
       {state?.saved !== undefined && !state.error && (
         <p className="text-sm text-green-700">Contagem salva — {state.saved} produtos.</p>
       )}
@@ -118,7 +221,19 @@ export function StockCountForm({
           </thead>
           <tbody>
             {groups.map((group) => (
-              <GroupRows key={group.sectorName} group={group} values={values} setValues={setValues} units={units} changeUnit={changeUnit} canEdit={canEdit} />
+              <GroupRows
+                key={group.sectorName}
+                group={group}
+                values={values}
+                setValues={setValues}
+                units={units}
+                changeUnit={changeUnit}
+                canEdit={canEdit}
+                editing={editing}
+                draft={draft}
+                setDraft={setDraft}
+                limitsFor={limitsFor}
+              />
             ))}
           </tbody>
         </table>
@@ -134,6 +249,10 @@ function GroupRows({
   units,
   changeUnit,
   canEdit,
+  editing,
+  draft,
+  setDraft,
+  limitsFor,
 }: {
   group: { sectorName: string; rows: CountRow[] };
   values: Record<string, string>;
@@ -141,7 +260,13 @@ function GroupRows({
   units: Record<string, string>;
   changeUnit: (productId: string, unit: string) => void;
   canEdit: boolean;
+  editing: boolean;
+  draft: Record<string, Draft>;
+  setDraft: React.Dispatch<React.SetStateAction<Record<string, Draft>>>;
+  limitsFor: (id: string) => Limits;
 }) {
+  const editField =
+    "w-20 rounded-md border border-orange-300 bg-orange-50/40 px-2 py-1 text-right text-base tabular-nums focus:border-orange-500 focus:outline-none sm:text-sm";
   return (
     <>
       <tr className="bg-neutral-50/70">
@@ -150,19 +275,55 @@ function GroupRows({
         </td>
       </tr>
       {group.rows.map((row) => {
+        const { min, per } = limitsFor(row.id);
+        const unit = units[row.id] ?? row.unit;
         const raw = values[row.id] ?? "";
         const hasValue = raw.trim() !== "" && Number.isFinite(Number(raw));
-        const stock = hasValue ? stockUnits(Number(raw), row.unitsPerBox) : null;
-        const cov = stock === null ? null : coverageOf(stock, row.min);
+        const stock = hasValue ? stockUnits(Number(raw), per) : null;
+        const cov = stock === null ? null : coverageOf(stock, min);
         return (
           <tr key={row.id} className="border-t border-neutral-100">
             <td className="px-4 py-1.5 text-neutral-800">{row.name}</td>
-            <td className="px-3 py-1.5 text-right tabular-nums text-neutral-500">{fmt(row.min)}</td>
-            <td className="px-3 py-1.5 text-right tabular-nums text-neutral-400">{fmt(row.unitsPerBox)}</td>
+            <td className="px-3 py-1.5 text-right tabular-nums text-neutral-500">
+              {editing ? (
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  inputMode="decimal"
+                  value={draft[row.id]?.min ?? ""}
+                  onChange={(e) =>
+                    setDraft((prev) => ({ ...prev, [row.id]: { ...prev[row.id], min: e.target.value } }))
+                  }
+                  aria-label={`Mínimo de ${row.name}`}
+                  className={editField}
+                />
+              ) : (
+                fmt(min)
+              )}
+            </td>
+            <td className="px-3 py-1.5 text-right tabular-nums text-neutral-400">
+              {editing ? (
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  inputMode="decimal"
+                  value={draft[row.id]?.per ?? ""}
+                  onChange={(e) =>
+                    setDraft((prev) => ({ ...prev, [row.id]: { ...prev[row.id], per: e.target.value } }))
+                  }
+                  aria-label={`Quantidade por caixa de ${row.name}`}
+                  className={editField}
+                />
+              ) : (
+                fmt(per)
+              )}
+            </td>
             <td className="px-3 py-1.5">
               {canEdit ? (
                 <select
-                  value={units[row.id] ?? row.unit}
+                  value={unit}
                   onChange={(ev) => changeUnit(row.id, ev.target.value)}
                   aria-label={`Medida de ${row.name}`}
                   className="rounded-md border border-neutral-200 bg-white px-1.5 py-1 text-base text-neutral-700 sm:text-xs"
@@ -174,7 +335,7 @@ function GroupRows({
                   ))}
                 </select>
               ) : (
-                <span className="text-xs text-neutral-500">{units[row.id] ?? row.unit}</span>
+                <span className="text-xs text-neutral-500">{unit}</span>
               )}
             </td>
             <td className="px-3 py-1.5">
@@ -185,11 +346,11 @@ function GroupRows({
                 inputMode="decimal"
                 value={raw}
                 onChange={(e) => setValues((prev) => ({ ...prev, [row.id]: e.target.value }))}
-                className="w-20 rounded-md border border-neutral-300 px-2 py-1 text-right text-base tabular-nums focus:border-orange-500 sm:text-sm focus:outline-none"
+                className="w-20 rounded-md border border-neutral-300 px-2 py-1 text-right text-base tabular-nums focus:border-orange-500 focus:outline-none sm:text-sm"
               />
             </td>
             <td className="px-3 py-1.5 text-right font-medium tabular-nums text-neutral-900">
-              {stock === null ? "—" : `${fmt(stock)} ${units[row.id] ?? row.unit}`}
+              {stock === null ? "—" : `${fmt(stock)} ${unit}`}
             </td>
             <td className="px-3 py-1.5 text-right tabular-nums text-neutral-500">
               {cov && cov.missing > 0 ? fmt(cov.missing) : "—"}

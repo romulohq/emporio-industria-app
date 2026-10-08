@@ -14,3 +14,14 @@ export const updateUnitSchema = z.object({
   product_id: z.string().uuid(),
   unit: z.string().trim().min(1).max(10),
 });
+
+export const updateLimitsSchema = z
+  .array(
+    z.object({
+      product_id: z.string().uuid(),
+      min_quantity: z.number().min(0).max(1_000_000_000),
+      units_per_box: z.number().positive().max(1_000_000),
+    })
+  )
+  .min(1)
+  .max(500);

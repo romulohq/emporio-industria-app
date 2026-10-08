@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/get-session";
 import { createClient } from "@/lib/supabase/server";
-import { saveStockCountSchema, updateUnitSchema } from "@/lib/validations/stock-count";
+import { saveStockCountSchema, updateLimitsSchema, updateUnitSchema } from "@/lib/validations/stock-count";
 import { stockUnits } from "@/lib/stock/coverage";
 
 export type SaveCountState = { error?: string; saved?: number } | undefined;
@@ -84,5 +84,24 @@ export async function updateProductUnit(input: unknown): Promise<{ error?: strin
   if (error) return { error: "Não foi possível alterar a medida. Verifique se você tem acesso ao setor." };
 
   for (const path of ["/estoque", "/estoque/mes", "/estoque/saldo", "/produtos"]) revalidatePath(path);
+  return { ok: true };
+}
+
+/** Edits the minimum stock and the quantity per box of products. Past counts keep the factor they were saved with. */
+export async function updateProductLimits(input: unknown): Promise<{ error?: string; ok?: boolean }> {
+  await requireUser();
+  const parsed = updateLimitsSchema.safeParse(input);
+  if (!parsed.success) return { error: "Valores inválidos: o mínimo não pode ser negativo e a quantidade por caixa precisa ser maior que zero." };
+
+  const supabase = await createClient();
+  for (const row of parsed.data) {
+    const { error } = await supabase
+      .from("products")
+      .update({ min_quantity: row.min_quantity, units_per_box: row.units_per_box })
+      .eq("id", row.product_id);
+    if (error) return { error: "Não foi possível salvar todas as alterações. Verifique se você tem acesso ao setor." };
+  }
+
+  for (const path of ["/estoque", "/estoque/mes", "/estoque/saldo", "/estoque/folha", "/produtos"]) revalidatePath(path);
   return { ok: true };
 }
