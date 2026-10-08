@@ -29,16 +29,16 @@ export default async function FolhaDeContagemPage() {
 
       <div className="columns-2 gap-8">
         {groups.map((group) => (
-          <section key={group.name} className="mb-4 break-inside-avoid">
-            <h2 className="mb-1 border-b border-neutral-400 pb-0.5 text-[11px] font-bold uppercase tracking-wider text-neutral-600">
+          <section key={group.name} className="mb-3">
+            <h2 className="mb-1 break-after-avoid border-b border-neutral-400 pb-0.5 text-[11px] font-bold uppercase tracking-wider text-neutral-600">
               {group.name}
             </h2>
             <table className="w-full text-[11px]">
               <tbody>
                 {group.products.map((p) => (
-                  <tr key={p.id} className="border-b border-neutral-200">
-                    <td className="py-1 pr-2 text-neutral-900">{p.name}</td>
-                    <td className="w-14 border-l border-neutral-200 py-1 text-right text-neutral-300">cx</td>
+                  <tr key={p.id} className="break-inside-avoid border-b border-neutral-200">
+                    <td className="py-1 pr-2 text-neutral-900 print:py-0.5">{p.name}</td>
+                    <td className="w-14 border-l border-neutral-200 py-1 text-right text-neutral-300 print:py-0.5">cx</td>
                   </tr>
                 ))}
               </tbody>
