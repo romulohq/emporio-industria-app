@@ -37,10 +37,10 @@ const TONE: Record<LabelTone, string> = {
 
 // on screen the block header is a soft tint; printed it is a solid band in the block's colour
 const SECTION_STYLE: Record<ScheduleSection, { title: string; day: string }> = {
-  salgados: { title: "bg-orange-50 print:bg-orange-600", day: "bg-orange-50 print:bg-orange-100" },
-  folheados: { title: "bg-amber-50 print:bg-amber-500", day: "bg-amber-50 print:bg-amber-100" },
-  paes: { title: "bg-stone-100 print:bg-stone-600", day: "bg-stone-100 print:bg-stone-200" },
-  cozinha: { title: "bg-emerald-50 print:bg-emerald-700", day: "bg-emerald-50 print:bg-emerald-100" },
+  salgados: { title: "bg-orange-100 print:bg-orange-600", day: "bg-orange-100 print:bg-orange-100" },
+  folheados: { title: "bg-amber-100 print:bg-amber-500", day: "bg-amber-100 print:bg-amber-100" },
+  paes: { title: "bg-stone-200 print:bg-stone-600", day: "bg-stone-200 print:bg-stone-200" },
+  cozinha: { title: "bg-emerald-100 print:bg-emerald-700", day: "bg-emerald-100 print:bg-emerald-100" },
 };
 
 export function ScheduleGrid({
@@ -245,14 +245,14 @@ export function ScheduleGrid({
                     </button>
                   </th>
                   {SCHEDULE_WEEKDAYS.map((d, i) => (
-                    <th key={d.n} className={`w-[14%] px-2 py-1.5 text-center print:py-1 ${style.day}`}>
+                    <th key={d.n} className={`group w-[14%] px-2 py-1.5 text-center print:py-1 ${style.day}`}>
                       <div className="text-[11px] font-bold uppercase text-neutral-800 print:text-[9px]">{d.label}</div>
                       <div className="text-[10px] font-normal text-neutral-500 print:text-[8px] print:text-neutral-600">{formatBrDate(dates[i])}</div>
                       {canEdit && (
                         <button
                           type="button"
                           onClick={() => toggleHoliday(d.n)}
-                          className="mt-0.5 text-[10px] font-medium text-neutral-400 hover:text-orange-700 print:hidden"
+                          className="mt-0.5 text-[10px] font-medium text-neutral-500 opacity-0 transition-opacity hover:text-orange-700 focus:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100 print:hidden"
                         >
                           {holidays.includes(d.n) ? "desmarcar feriado" : "feriado"}
                         </button>
