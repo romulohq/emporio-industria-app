@@ -3,7 +3,7 @@
 import { useActionState, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, Pencil, Printer } from "lucide-react";
+import { ChevronRight, Pencil, Pin, PinOff, Printer } from "lucide-react";
 import { CoverageBar } from "@/components/stock/coverage-bar";
 import {
   saveStockCount,
@@ -12,6 +12,7 @@ import {
   type SaveCountState,
 } from "@/app/(app)/estoque/contagem-actions";
 import { unitOptionsFor } from "@/lib/format/units";
+import { setPinnedDate, usePinnedDate } from "@/lib/stock/pinned-date";
 import { StockPrintReport, type PrintGroup } from "@/components/stock/stock-print-report";
 import { coverageOf, stockUnits } from "@/lib/stock/coverage";
 
@@ -51,6 +52,8 @@ export function StockCountForm({
   canEdit: boolean;
 }) {
   const router = useRouter();
+  const pinnedDate = usePinnedDate();
+  const isPinned = pinnedDate !== null;
   const [state, formAction, pending] = useActionState<SaveCountState, FormData>(saveStockCount, undefined);
   const allRows = useMemo(() => groups.flatMap((g) => g.rows), [groups]);
   const [values, setValues] = useState<Record<string, string>>(() =>
@@ -166,10 +169,33 @@ export function StockCountForm({
           <input
             type="date"
             value={date}
-            onChange={(e) => e.target.value && router.push(`/estoque?data=${e.target.value}`)}
+            onChange={(e) => {
+              if (!e.target.value) return;
+              // while pinned, the pin follows the date being looked at
+              if (isPinned) setPinnedDate(e.target.value);
+              router.push(`/estoque?data=${e.target.value}`);
+            }}
             className="rounded-md border border-neutral-300 px-2 py-1 text-sm text-neutral-900"
           />
         </label>
+        <button
+          type="button"
+          onClick={() => setPinnedDate(isPinned ? null : date)}
+          aria-pressed={isPinned}
+          title={
+            isPinned
+              ? "Data fixada: vale em todas as abas até você recarregar a página. Clique para soltar."
+              : "Fixar esta data: ela é mantida ao trocar de aba ou menu, até você recarregar a página."
+          }
+          className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+            isPinned
+              ? "border-orange-500 bg-orange-50 text-orange-700"
+              : "border-neutral-300 bg-white text-neutral-500 hover:bg-neutral-50"
+          }`}
+        >
+          {isPinned ? <Pin className="h-3.5 w-3.5 fill-orange-500" /> : <PinOff className="h-3.5 w-3.5" />}
+          {isPinned ? "Data fixada" : "Fixar data"}
+        </button>
         <div className="flex flex-wrap items-center gap-3">
           {canEdit && !editing && (
             <button
