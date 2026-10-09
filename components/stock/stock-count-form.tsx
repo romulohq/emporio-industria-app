@@ -12,6 +12,7 @@ import {
   type SaveCountState,
 } from "@/app/(app)/estoque/contagem-actions";
 import { unitOptionsFor } from "@/lib/format/units";
+import { StockPrintReport, type PrintGroup } from "@/components/stock/stock-print-report";
 import { coverageOf, stockUnits } from "@/lib/stock/coverage";
 
 export type CountRow = {
@@ -137,8 +138,25 @@ export function StockCountForm({
     [values]
   );
 
+  const printGroups: PrintGroup[] = groups.map((g) => ({
+    sectorName: g.sectorName,
+    rows: g.rows.map((r) => {
+      const { min, per } = limitsFor(r.id);
+      const raw = values[r.id] ?? "";
+      const hasValue = raw.trim() !== "" && Number.isFinite(Number(raw));
+      return {
+        id: r.id,
+        name: r.name,
+        unit: units[r.id] ?? r.unit,
+        stock: hasValue ? stockUnits(Number(raw), per) : null,
+        min,
+      };
+    }),
+  }));
+
   return (
-    <form action={formAction} className="space-y-4">
+    <>
+    <form action={formAction} className="space-y-4 print:hidden">
       <input type="hidden" name="count_date" value={date} />
       <input type="hidden" name="entries" value={JSON.stringify(entries)} />
 
@@ -249,7 +267,26 @@ export function StockCountForm({
           </tbody>
         </table>
       </div>
+
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-white p-4">
+        <div>
+          <h2 className="text-sm font-semibold text-neutral-900">Imprimir estoques</h2>
+          <p className="text-xs text-neutral-500">
+            Todos os estoques desta contagem em uma folha A4, coloridos pelo nível de abastecimento.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-700"
+        >
+          <Printer className="h-4 w-4" />
+          Imprimir estoques
+        </button>
+      </section>
     </form>
+    <StockPrintReport date={date} groups={printGroups} />
+    </>
   );
 }
 

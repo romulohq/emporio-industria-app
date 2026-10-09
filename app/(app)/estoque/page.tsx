@@ -42,7 +42,7 @@ export default async function ContagemDoDiaPage({ searchParams }: { searchParams
 
   return (
     <div className="space-y-4">
-      <div>
+      <div className="print:hidden">
         <h1 className="text-xl font-semibold text-neutral-900">Estoque</h1>
         <p className="text-sm text-neutral-500">
           Contagem da câmara — Fábrica Osório de Paiva. Informe as caixas contadas; o estoque em unidades e o
