@@ -14,15 +14,26 @@ export type SaveCountState = { error?: string; saved?: number } | undefined;
  * the most recent count only — filling in an older day never rewinds it.
  */
 export async function saveStockCount(_prev: SaveCountState, formData: FormData): Promise<SaveCountState> {
-  const { userId } = await requireUser();
-
   let raw: unknown;
   try {
     raw = JSON.parse(String(formData.get("entries") ?? "[]"));
   } catch {
     return { error: "Dados inválidos." };
   }
-  const parsed = saveStockCountSchema.safeParse({ count_date: formData.get("count_date"), entries: raw });
+  return persistStockCount({ count_date: formData.get("count_date"), entries: raw }, true);
+}
+
+/**
+ * Autosave: the count screen sends the boxes typed so far a moment after the last keystroke.
+ * Pages are dynamic, so the other screens read the new values on their next visit without a revalidation here.
+ */
+export async function autosaveStockCount(input: unknown): Promise<SaveCountState> {
+  return persistStockCount(input, false);
+}
+
+async function persistStockCount(input: unknown, revalidate: boolean): Promise<SaveCountState> {
+  const { userId } = await requireUser();
+  const parsed = saveStockCountSchema.safeParse(input);
   if (!parsed.success) return { error: "Informe ao menos uma contagem." };
   const { count_date, entries } = parsed.data;
 
@@ -68,8 +79,10 @@ export async function saveStockCount(_prev: SaveCountState, formData: FormData):
     }
   }
 
-  revalidatePath("/estoque");
-  revalidatePath("/estoque/mes");
+  if (revalidate) {
+    revalidatePath("/estoque");
+    revalidatePath("/estoque/mes");
+  }
   return { saved: rows.length };
 }
 

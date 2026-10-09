@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight, Pencil, Pin, PinOff, Printer } from "lucide-react";
 import { CoverageBar } from "@/components/stock/coverage-bar";
 import {
+  autosaveStockCount,
   saveStockCount,
   updateProductLimits,
   updateProductUnit,
@@ -56,9 +57,58 @@ export function StockCountForm({
   const isPinned = pinnedDate !== null;
   const [state, formAction, pending] = useActionState<SaveCountState, FormData>(saveStockCount, undefined);
   const allRows = useMemo(() => groups.flatMap((g) => g.rows), [groups]);
-  const [values, setValues] = useState<Record<string, string>>(() =>
+  const [initialValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(allRows.map((r) => [r.id, r.boxes === null ? "" : String(r.boxes)]))
   );
+  const [values, setValues] = useState(initialValues);
+
+  // autosave: boxes typed are sent shortly after the last keystroke, only what differs from what is saved.
+  // Refs (not effects) so a pending save still goes out if the user leaves the screen right away.
+  const valuesRef = useRef(initialValues);
+  const savedBoxes = useRef<Record<string, number>>(
+    Object.fromEntries(allRows.filter((r) => r.boxes !== null).map((r) => [r.id, r.boxes as number]))
+  );
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savingNow = useRef(false);
+  const [autoStatus, setAutoStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [autoError, setAutoError] = useState<string | null>(null);
+
+  const pendingEntries = () =>
+    Object.entries(valuesRef.current)
+      .filter(([, v]) => v.trim() !== "" && Number.isFinite(Number(v)) && Number(v) >= 0)
+      .map(([product_id, v]) => ({ product_id, boxes: Number(v) }))
+      .filter((e) => savedBoxes.current[e.product_id] !== e.boxes);
+
+  async function flushAutosave() {
+    if (savingNow.current) return;
+    savingNow.current = true;
+    setAutoStatus("saving");
+    try {
+      for (let batch = pendingEntries(); batch.length > 0; batch = pendingEntries()) {
+        const result = await autosaveStockCount({ count_date: date, entries: batch });
+        if (result?.error) {
+          setAutoError(result.error);
+          setAutoStatus("error");
+          return;
+        }
+        for (const e of batch) savedBoxes.current[e.product_id] = e.boxes;
+      }
+      setAutoError(null);
+      setAutoStatus("saved");
+    } catch {
+      setAutoError("Sem conexão: a contagem será salva na próxima alteração.");
+      setAutoStatus("error");
+    } finally {
+      savingNow.current = false;
+    }
+  }
+
+  function changeBoxes(productId: string, value: string) {
+    valuesRef.current = { ...valuesRef.current, [productId]: value };
+    setValues(valuesRef.current);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(flushAutosave, 700);
+  }
 
   // unit of measure per product, changed in place (saved right away)
   const [units, setUnits] = useState<Record<string, string>>({});
@@ -251,6 +301,9 @@ export function StockCountForm({
           já registradas não são recalculadas.
         </p>
       )}
+      {autoStatus === "saving" && <p className="text-xs text-neutral-500">Salvando automaticamente...</p>}
+      {autoStatus === "saved" && <p className="text-xs text-green-700">Contagem salva automaticamente.</p>}
+      {autoStatus === "error" && autoError && <p className="text-sm text-red-600">{autoError}</p>}
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
       {unitError && <p className="text-sm text-red-600">{unitError}</p>}
       {limitsError && <p className="text-sm text-red-600">{limitsError}</p>}
@@ -280,7 +333,7 @@ export function StockCountForm({
                 isCollapsed={collapsed.has(group.sectorName)}
                 onToggle={() => toggleSection(group.sectorName)}
                 values={values}
-                setValues={setValues}
+                changeBoxes={changeBoxes}
                 units={units}
                 changeUnit={changeUnit}
                 canEdit={canEdit}
@@ -321,7 +374,7 @@ function GroupRows({
   isCollapsed,
   onToggle,
   values,
-  setValues,
+  changeBoxes,
   units,
   changeUnit,
   canEdit,
@@ -334,7 +387,7 @@ function GroupRows({
   isCollapsed: boolean;
   onToggle: () => void;
   values: Record<string, string>;
-  setValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  changeBoxes: (productId: string, value: string) => void;
   units: Record<string, string>;
   changeUnit: (productId: string, unit: string) => void;
   canEdit: boolean;
@@ -432,7 +485,7 @@ function GroupRows({
                 step="any"
                 inputMode="decimal"
                 value={raw}
-                onChange={(e) => setValues((prev) => ({ ...prev, [row.id]: e.target.value }))}
+                onChange={(e) => changeBoxes(row.id, e.target.value)}
                 className="w-20 rounded-md border border-neutral-300 px-2 py-1 text-right text-base tabular-nums focus:border-orange-500 focus:outline-none sm:text-sm"
               />
             </td>
