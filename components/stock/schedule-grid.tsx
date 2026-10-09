@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, ChevronRight, Copy, Pencil, Plus, Printer, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, ChevronRight, Copy, Pencil, Plus, Printer, X } from "lucide-react";
 import {
   addScheduleItem,
   copyPreviousScheduleWeek,
@@ -81,6 +81,28 @@ export function ScheduleGrid({
   }
   const [, startTransition] = useTransition();
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // which blocks go to the printer: the print button opens a small chooser (all blocks by default)
+  const [printOpen, setPrintOpen] = useState(false);
+  const [printSections, setPrintSections] = useState<Set<string>>(() => new Set(SCHEDULE_SECTIONS.map((s) => s.key)));
+  const printRef = useRef<HTMLDivElement>(null);
+  const allPrintSelected = printSections.size === SCHEDULE_SECTIONS.length;
+  function togglePrintSection(key: string) {
+    setPrintSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+  useEffect(() => {
+    if (!printOpen) return;
+    const close = (e: MouseEvent) => {
+      if (printRef.current && !printRef.current.contains(e.target as Node)) setPrintOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [printOpen]);
 
   useEffect(() => {
     if (!menu) return;
@@ -189,14 +211,72 @@ export function ScheduleGrid({
             {editing ? "Concluir edição da lista" : "Editar lista de produtos"}
           </button>
         )}
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-700"
-        >
-          <Printer className="h-3.5 w-3.5" />
-          Imprimir
-        </button>
+        <div ref={printRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setPrintOpen((v) => !v)}
+            aria-expanded={printOpen}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-700"
+          >
+            <Printer className="h-3.5 w-3.5" />
+            Imprimir
+          </button>
+          {printOpen && (
+            <div className="absolute right-0 top-full z-40 mt-1.5 w-64 rounded-lg border border-neutral-200 bg-white p-3 shadow-xl">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs font-semibold text-neutral-900">Quais setores imprimir?</p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPrintSections(allPrintSelected ? new Set() : new Set(SCHEDULE_SECTIONS.map((s) => s.key)))
+                  }
+                  className="text-[11px] font-medium text-orange-700 hover:text-orange-800"
+                >
+                  {allPrintSelected ? "Desmarcar todos" : "Marcar todos"}
+                </button>
+              </div>
+              <div className="space-y-0.5">
+                {SCHEDULE_SECTIONS.map((section) => {
+                  const checked = printSections.has(section.key);
+                  return (
+                    <label
+                      key={section.key}
+                      className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1.5 text-sm text-neutral-800 hover:bg-neutral-50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => togglePrintSection(section.key)}
+                        className="sr-only"
+                      />
+                      <span
+                        className={`flex h-4 w-4 items-center justify-center rounded border ${
+                          checked ? "border-orange-600 bg-orange-600 text-white" : "border-neutral-300 bg-white"
+                        }`}
+                      >
+                        {checked && <Check className="h-3 w-3" strokeWidth={3} />}
+                      </span>
+                      {section.label}
+                    </label>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                disabled={printSections.size === 0}
+                onClick={() => {
+                  setPrintOpen(false);
+                  // let the chooser close before the print dialog freezes the page
+                  setTimeout(() => window.print(), 50);
+                }}
+                className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                Imprimir selecionados
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {error && <p className="text-sm text-red-600 print:hidden">{error}</p>}
@@ -226,7 +306,9 @@ export function ScheduleGrid({
         return (
           <section
             key={section.key}
-            className="overflow-x-auto rounded-lg border border-neutral-200 bg-white print:overflow-visible print:rounded-md print:border-neutral-300"
+            className={`overflow-x-auto rounded-lg border border-neutral-200 bg-white print:overflow-visible print:rounded-md print:border-neutral-300 ${
+              printSections.has(section.key) ? "" : "print:hidden"
+            }`}
           >
             <table className="w-full min-w-[640px] border-collapse text-left text-sm print:min-w-0 print:text-[10px]">
               <thead>
