@@ -27,11 +27,3 @@ export function setPinnedDate(date: string | null) {
 export function usePinnedDate(): string | null {
   return useSyncExternalStore(subscribe, () => pinned, () => null);
 }
-
-/** Query string that makes each stock page open on the pinned date (or no query when nothing is pinned). */
-export function pinnedQuery(page: "contagem" | "cronograma" | "mes", date: string | null): string {
-  if (!date) return "";
-  if (page === "contagem") return `?data=${date}`;
-  if (page === "cronograma") return `?semana=${date}`;
-  return `?mes=${date.slice(0, 7)}`;
-}

@@ -4,12 +4,12 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { pinnedQuery, usePinnedDate } from "@/lib/stock/pinned-date";
+import { usePinnedDate } from "@/lib/stock/pinned-date";
 
 const TABS = [
-  { base: "/estoque", page: "contagem", label: "Contagem do dia", param: "data" },
-  { base: "/estoque/cronograma", page: "cronograma", label: "Cronograma de produção", param: "semana" },
-  { base: "/estoque/mes", page: "mes", label: "Visão do mês", param: "mes" },
+  { base: "/estoque", page: "contagem", label: "Contagem do dia" },
+  { base: "/estoque/cronograma", page: "cronograma", label: "Cronograma de produção" },
+  { base: "/estoque/mes", page: "mes", label: "Visão do mês" },
 ] as const;
 
 export function EstoqueTabs() {
@@ -17,15 +17,12 @@ export function EstoqueTabs() {
   const router = useRouter();
   const pinned = usePinnedDate();
 
-  // arriving from the menu (which knows nothing of the pin) on a page opened without its own
-  // date: jump to the pinned one. A page that already carries its date is left alone, so moving
-  // week by week or month by month inside a tab keeps working while pinned.
+  // the pin only concerns the daily count: arriving from the menu (which knows nothing of the
+  // pin) on it without a date, jump to the pinned one. The other tabs ignore the pin.
   useEffect(() => {
-    if (!pinned) return;
-    const tab = TABS.find((t) => t.base === pathname);
-    if (!tab) return;
-    if (new URLSearchParams(window.location.search).has(tab.param)) return;
-    router.replace(`${tab.base}${pinnedQuery(tab.page, pinned)}`);
+    if (!pinned || pathname !== "/estoque") return;
+    if (new URLSearchParams(window.location.search).has("data")) return;
+    router.replace(`/estoque?data=${pinned}`);
     // only when the page changes: the pin itself changing must not move the user around
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
@@ -35,7 +32,7 @@ export function EstoqueTabs() {
       {TABS.map((tab) => (
         <Link
           key={tab.base}
-          href={`${tab.base}${pinnedQuery(tab.page, pinned)}`}
+          href={tab.page === "contagem" && pinned ? `${tab.base}?data=${pinned}` : tab.base}
           className={cn(
             "border-b-2 px-3 py-2 text-sm font-medium",
             pathname === tab.base

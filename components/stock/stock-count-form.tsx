@@ -184,7 +184,7 @@ export function StockCountForm({
           aria-pressed={isPinned}
           title={
             isPinned
-              ? "Data fixada: vale em todas as abas até você recarregar a página. Clique para soltar."
+              ? "Data fixada: a contagem abre nesta data ao trocar de aba ou menu, até você recarregar a página. Clique para soltar."
               : "Fixar esta data: ela é mantida ao trocar de aba ou menu, até você recarregar a página."
           }
           className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
