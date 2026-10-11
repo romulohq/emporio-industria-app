@@ -29,12 +29,6 @@ const TEXT: Record<CoverageLevel, string> = {
   low: "text-red-600",
   none: "text-neutral-400",
 };
-const TINT: Record<CoverageLevel, string> = {
-  ok: "bg-green-50",
-  warn: "bg-amber-50",
-  low: "bg-red-50",
-  none: "",
-};
 
 /**
  * One-page, colour-coded printout of every stock of the count (shown only when printing).
@@ -92,14 +86,14 @@ export function StockPrintReport({ date, groups }: { date: string; groups: Print
                   const cov = row.stock === null ? null : coverageOf(row.stock, row.min);
                   const level: CoverageLevel = cov?.level ?? "none";
                   return (
-                    <tr key={row.id} className={`break-inside-avoid border-b border-neutral-200 ${TINT[level]}`}>
+                    <tr key={row.id} className="break-inside-avoid border-b border-neutral-200 even:bg-neutral-100">
                       <td className="py-px pl-1 pr-1.5 font-semibold text-neutral-900">{row.name}</td>
                       <td className="whitespace-nowrap py-px pr-1.5 text-right font-bold tabular-nums text-neutral-900">
                         {row.stock === null ? "—" : `${fmt(row.stock)} ${row.unit}`}
                       </td>
-                      <td className="w-24 py-px pr-1">
+                      <td className="w-[46%] py-px pr-1">
                         <div className="flex items-center gap-1">
-                          <div className="h-2 flex-1 overflow-hidden rounded-full bg-neutral-200">
+                          <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-neutral-300">
                             <div
                               className={`h-full rounded-full ${BAR[level]}`}
                               style={{ width: `${cov?.ratio == null ? 0 : Math.max(0, Math.min(1, cov.ratio)) * 100}%` }}
