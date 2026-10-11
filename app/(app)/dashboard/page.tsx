@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { AlertTriangle, CalendarDays, Croissant, Factory } from "lucide-react";
+import { AlertTriangle, CalendarDays, Factory } from "lucide-react";
+import { BreadIcon } from "@/components/icons/bread-icon";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/get-session";
 import { Card, CardContent, CardHeader, CardIcon, CardTitle } from "@/components/ui/card";
@@ -73,6 +74,9 @@ export default async function DashboardPage() {
       .maybeSingle();
     cariocaCount = (data as (CountLike & { boxes: number }) | null) ?? null;
   }
+  // the minimum is the full-stock target of the chamber, shown in boxes like the count itself
+  const maxBoxes = carioca ? Number(carioca.min_quantity) / Number(carioca.units_per_box || 1) : 0;
+  const fmtBoxes = (n: number) => new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 }).format(n);
   const cariocaCoverage = carioca && cariocaCount ? coverageOf(Number(cariocaCount.stock_units), Number(carioca.min_quantity)) : null;
 
   // --- card: what is being produced today, from the weekly schedule ---
@@ -116,7 +120,7 @@ export default async function DashboardPage() {
                 <CardHeader className="justify-between">
                   <div className="flex items-center gap-3">
                     <CardIcon tone="violet">
-                      <Croissant className="h-[18px] w-[18px]" strokeWidth={2.25} />
+                      <BreadIcon className="h-[18px] w-[18px]" strokeWidth={2.25} />
                     </CardIcon>
                     <CardTitle>Pão carioca</CardTitle>
                   </div>
@@ -138,8 +142,7 @@ export default async function DashboardPage() {
                             </span>
                           </p>
                           <p className="text-xs text-neutral-400">
-                            {formatQuantity(Number(cariocaCount.stock_units), carioca.unit)} de mín.{" "}
-                            {formatQuantity(Number(carioca.min_quantity), carioca.unit)}
+                            Quantidade máxima de estoque na câmara: {fmtBoxes(maxBoxes)} {maxBoxes === 1 ? "caixa" : "caixas"}
                           </p>
                         </div>
                         <p className="text-xs text-neutral-400">Contado em {formatBrDate(cariocaCount.count_date)}</p>

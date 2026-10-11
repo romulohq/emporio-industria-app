@@ -3,7 +3,7 @@
 import { useActionState, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, Pencil, Pin, PinOff, Printer } from "lucide-react";
+import { ChevronRight, Pencil, Pin, Printer } from "lucide-react";
 import { CoverageBar } from "@/components/stock/coverage-bar";
 import {
   autosaveStockCount,
@@ -214,6 +214,7 @@ export function StockCountForm({
       <input type="hidden" name="entries" value={JSON.stringify(entries)} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
         <label className="flex items-center gap-2 text-sm text-neutral-600">
           Data da contagem
           <input
@@ -237,15 +238,14 @@ export function StockCountForm({
               ? "Data fixada: a contagem abre nesta data ao trocar de aba ou menu, até você recarregar a página. Clique para soltar."
               : "Fixar esta data: ela é mantida ao trocar de aba ou menu, até você recarregar a página."
           }
-          className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
-            isPinned
-              ? "border-orange-500 bg-orange-50 text-orange-700"
-              : "border-neutral-300 bg-white text-neutral-500 hover:bg-neutral-50"
+          aria-label={isPinned ? "Soltar data" : "Fixar data"}
+          className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+            isPinned ? "text-orange-600 hover:bg-orange-50" : "text-neutral-400 hover:bg-neutral-100 hover:text-orange-600"
           }`}
         >
-          {isPinned ? <Pin className="h-3.5 w-3.5 fill-orange-500" /> : <PinOff className="h-3.5 w-3.5" />}
-          {isPinned ? "Data fixada" : "Fixar data"}
+          <Pin className={`h-4 w-4 ${isPinned ? "fill-orange-500" : ""}`} />
         </button>
+        </div>
         <div className="flex flex-wrap items-center gap-3">
           {canEdit && !editing && (
             <button
