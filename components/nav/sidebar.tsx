@@ -16,7 +16,7 @@ import type { Profile, Sector } from "@/lib/types/database.types";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Painel", icon: LayoutDashboard },
-  { href: "/produtos", label: "Produtos e fichas técnicas", icon: Package },
+  { href: "/produtos", label: "Produtos", icon: Package },
   { href: "/estoque", label: "Estoque", icon: Boxes },
   { href: "/pedidos", label: "Pedidos", icon: ClipboardList },
   { href: "/historico", label: "Histórico", icon: History },
