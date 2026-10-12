@@ -186,6 +186,36 @@ export type ScheduleCell = {
   updated_at: string;
 };
 
+export type Subproduct = {
+  id: string;
+  name: string;
+  unit: string;
+  active: boolean;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type Recipe = {
+  id: string;
+  product_id: string | null;
+  subproduct_id: string | null;
+  yield_quantity: number | null;
+  yield_unit: string;
+  instructions: string;
+  updated_by: string | null;
+  updated_at: string;
+};
+
+export type RecipeItem = {
+  id: string;
+  recipe_id: string;
+  position: number;
+  ingredient_name: string | null;
+  subproduct_id: string | null;
+  quantity: number;
+  unit: string;
+};
+
 export type ProductionOrder = {
   id: string;
   product_id: string;
@@ -267,6 +297,24 @@ export type Database = {
         Row: StockCount;
         Insert: Partial<StockCount>;
         Update: Partial<StockCount>;
+        Relationships: Relationship[];
+      };
+      subproducts: {
+        Row: Subproduct;
+        Insert: Partial<Subproduct>;
+        Update: Partial<Subproduct>;
+        Relationships: Relationship[];
+      };
+      recipes: {
+        Row: Recipe;
+        Insert: Partial<Recipe>;
+        Update: Partial<Recipe>;
+        Relationships: Relationship[];
+      };
+      recipe_items: {
+        Row: RecipeItem;
+        Insert: Partial<RecipeItem>;
+        Update: Partial<RecipeItem>;
         Relationships: Relationship[];
       };
       schedule_items: {

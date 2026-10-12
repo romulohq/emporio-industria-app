@@ -16,7 +16,7 @@ import type { Profile, Sector } from "@/lib/types/database.types";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Painel", icon: LayoutDashboard },
-  { href: "/produtos", label: "Produtos", icon: Package },
+  { href: "/produtos", label: "Produtos e fichas técnicas", icon: Package },
   { href: "/estoque", label: "Estoque", icon: Boxes },
   { href: "/pedidos", label: "Pedidos", icon: ClipboardList },
   { href: "/historico", label: "Histórico", icon: History },
@@ -45,7 +45,7 @@ export function Sidebar({
           EP
         </span>
         <div>
-          <p className="text-sm font-extrabold leading-tight text-neutral-900">Empório do Pão</p>
+          <p className="text-sm font-extrabold leading-tight text-neutral-900">Fábrica Grupo Empório</p>
           <p className="text-xs text-neutral-500">Estoque &amp; Produção</p>
         </div>
       </div>
