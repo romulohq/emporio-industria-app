@@ -104,11 +104,25 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl bg-gradient-to-br from-violet-600 via-indigo-600 to-blue-600 p-6 text-white shadow-lg sm:p-8">
-        <h1 className="text-2xl font-extrabold sm:text-3xl">
-          Olá, {greetingName(profile.full_name, profile.email)}, bem-vindo(a)!
-        </h1>
-        <p className="mt-1 text-sm text-white/80">{today}</p>
+      <div
+        className="relative overflow-hidden rounded-2xl p-6 text-white shadow-[0_12px_28px_-10px_rgba(124,98,245,0.55)] sm:p-8"
+        style={{ backgroundImage: "linear-gradient(100deg, #7c7df3 0%, #7461f4 62%, #7a60f5 100%)" }}
+      >
+        {/* soft light shapes on the right, as in the reference card */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-[66%] top-1/2 aspect-square h-[240%] -translate-y-1/2 rounded-full bg-white/[0.12]"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -bottom-[70%] right-[4%] aspect-square h-[120%] rounded-full bg-white/[0.07]"
+        />
+        <div className="relative">
+          <h1 className="text-2xl font-extrabold sm:text-3xl">
+            Olá, {greetingName(profile.full_name, profile.email)}, bem-vindo(a)!
+          </h1>
+          <p className="mt-1 text-sm text-white/80">{today}</p>
+        </div>
       </div>
 
       <DashboardGrid
