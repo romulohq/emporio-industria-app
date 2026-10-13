@@ -6,8 +6,8 @@ import { cn } from "@/lib/utils";
 
 const TABS = [
   { href: "/produtos", label: "Produtos", exact: true },
-  { href: "/produtos/fichas", label: "Fichas técnicas", exact: false },
   { href: "/produtos/subprodutos", label: "Subprodutos", exact: false },
+  { href: "/produtos/fichas", label: "Fichas técnicas", exact: false },
 ];
 
 export function ProdutosTabs() {

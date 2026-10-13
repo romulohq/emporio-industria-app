@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ProdutosTabs } from "@/components/products/produtos-tabs";
+import { FichasBrowser, type FichaGroup } from "@/components/recipes/fichas-browser";
 import type { Product, Recipe, Sector } from "@/lib/types/database.types";
 
 export default async function FichasPage() {
@@ -19,8 +19,17 @@ export default async function FichasPage() {
 
   // packaging does not have a technical sheet
   const sectorList = ((sectors ?? []) as Sector[]).filter((s) => !/embalage/i.test(s.name));
-  const groups = sectorList
-    .map((s) => ({ sector: s, products: ((products ?? []) as Product[]).filter((p) => p.sector_id === s.id) }))
+  const groups: FichaGroup[] = sectorList
+    .map((s) => ({
+      sectorId: s.id,
+      sectorName: s.name,
+      products: ((products ?? []) as Product[])
+        .filter((p) => p.sector_id === s.id)
+        .map((p) => {
+          const recipe = recipeByProduct.get(p.id);
+          return { id: p.id, name: p.name, ingredients: recipe ? (itemCount.get(recipe.id) ?? 0) : 0 };
+        }),
+    }))
     .filter((g) => g.products.length > 0);
 
   return (
@@ -32,36 +41,7 @@ export default async function FichasPage() {
         Embalagens não têm ficha.
       </p>
 
-      {groups.map(({ sector, products: list }) => (
-        <section key={sector.id} className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
-          <h2 className="bg-neutral-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-            {sector.name}
-          </h2>
-          <ul>
-            {list.map((product) => {
-              const recipe = recipeByProduct.get(product.id);
-              const count = recipe ? (itemCount.get(recipe.id) ?? 0) : 0;
-              return (
-                <li key={product.id} className="border-t border-neutral-100">
-                  <Link
-                    href={`/produtos/fichas/${product.id}`}
-                    className="flex items-center justify-between gap-3 px-4 py-2 text-sm hover:bg-neutral-50"
-                  >
-                    <span className="font-medium text-neutral-900">{product.name}</span>
-                    {count > 0 ? (
-                      <span className="rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700">
-                        {count} {count === 1 ? "ingrediente" : "ingredientes"}
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs text-neutral-500">Sem ficha</span>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ))}
+      <FichasBrowser groups={groups} />
     </div>
   );
 }
