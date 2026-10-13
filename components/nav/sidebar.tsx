@@ -41,14 +41,14 @@ export function Sidebar({
 }) {
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-neutral-200/70 bg-white print:hidden">
-      <Link href="/dashboard" className="block px-5 pb-4 pt-5" aria-label="Time Fábrica">
+      <Link href="/dashboard" className="block px-5 pb-3 pt-5" aria-label="Time Fábrica">
         <Image
-          src="/time-fabrica-logo.png"
+          src="/time-fabrica-logo-laranja.png"
           alt="Time Fábrica"
           width={1200}
           height={282}
           priority
-          className="h-11 w-auto"
+          className="h-8 w-auto"
         />
       </Link>
 

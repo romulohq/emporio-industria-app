@@ -306,7 +306,7 @@ export function ScheduleGrid({
         return (
           <section
             key={section.key}
-            className={`overflow-x-auto rounded-lg border border-neutral-200 bg-white print:overflow-visible print:rounded-md print:border-neutral-300 ${
+            className={`overflow-x-auto rounded-lg border border-neutral-200 bg-white print:break-inside-avoid print:overflow-visible print:rounded-md print:border-neutral-300 ${
               printSections.has(section.key) ? "" : "print:hidden"
             }`}
           >
