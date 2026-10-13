@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requireUser } from "@/lib/auth/get-session";
 import { createClient } from "@/lib/supabase/server";
-import { loadRecipe, loadSubproducts } from "@/lib/recipes/load";
+import { loadRawMaterials, loadRecipe, loadSubproducts } from "@/lib/recipes/load";
 import { RecipeEditor } from "@/components/recipes/recipe-editor";
 import type { Product, Sector } from "@/lib/types/database.types";
 
@@ -28,14 +28,15 @@ export default async function FichaProdutoPage({ params }: { params: Promise<{ i
     );
   }
 
-  const [{ recipe, lines }, { list, recipes }] = await Promise.all([
+  const [{ recipe, lines }, { list, recipes }, rawMaterials] = await Promise.all([
     loadRecipe(supabase, { productId: id }),
     loadSubproducts(supabase),
+    loadRawMaterials(supabase),
   ]);
 
   return (
     <div className="space-y-4">
-      <div>
+      <div className="print:hidden">
         <Link href="/produtos/fichas" className="inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-800">
           <ArrowLeft className="h-4 w-4" />
           Fichas técnicas
@@ -47,11 +48,15 @@ export default async function FichaProdutoPage({ params }: { params: Promise<{ i
       <RecipeEditor
         owner={{ productId: id }}
         ownerName={(product as Product).name}
+        ownerCode={(product as Product).sku}
+        ownerUnit={(product as Product).unit}
+        ownerKind={sector ? (sector as Sector).name : "Produto"}
         initialYieldQuantity={recipe?.yield_quantity != null ? Number(recipe.yield_quantity) : null}
         initialYieldUnit={recipe?.yield_unit ?? ""}
         initialInstructions={recipe?.instructions ?? ""}
         initialLines={lines}
         subproducts={list.filter((s) => s.active).map((s) => ({ id: s.id, name: s.name, unit: s.unit }))}
+        rawMaterials={rawMaterials.filter((m) => m.active).map((m) => ({ id: m.id, name: m.name, unit: m.unit }))}
         subRecipes={recipes}
         canEdit={profile.is_admin || mySectors.length > 0}
       />

@@ -206,12 +206,23 @@ export type Recipe = {
   updated_at: string;
 };
 
+export type RawMaterial = {
+  id: string;
+  name: string;
+  unit: string;
+  code: string | null;
+  active: boolean;
+  created_by: string | null;
+  created_at: string;
+};
+
 export type RecipeItem = {
   id: string;
   recipe_id: string;
   position: number;
   ingredient_name: string | null;
   subproduct_id: string | null;
+  raw_material_id: string | null;
   quantity: number;
   unit: string;
 };
@@ -303,6 +314,12 @@ export type Database = {
         Row: Subproduct;
         Insert: Partial<Subproduct>;
         Update: Partial<Subproduct>;
+        Relationships: Relationship[];
+      };
+      raw_materials: {
+        Row: RawMaterial;
+        Insert: Partial<RawMaterial>;
+        Update: Partial<RawMaterial>;
         Relationships: Relationship[];
       };
       recipes: {

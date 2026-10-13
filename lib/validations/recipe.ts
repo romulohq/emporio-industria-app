@@ -4,12 +4,14 @@ const line = z
   .object({
     name: z.string().trim().max(80).nullable(),
     subproduct_id: z.string().uuid().nullable(),
+    raw_material_id: z.string().uuid().nullable().default(null),
     quantity: z.number().positive("A quantidade precisa ser maior que zero.").max(1_000_000),
     unit: z.string().trim().min(1, "Informe a unidade de cada ingrediente.").max(12),
   })
-  .refine((l) => (l.name && l.name.length > 0) !== (l.subproduct_id !== null), {
-    message: "Cada linha precisa de um insumo ou de um subproduto.",
-  });
+  .refine(
+    (l) => [l.raw_material_id !== null, l.subproduct_id !== null, !!l.name && l.name.length > 0].filter(Boolean).length === 1,
+    { message: "Cada linha precisa de uma matéria-prima ou de um subproduto." }
+  );
 
 export const saveRecipeSchema = z
   .object({
@@ -21,6 +23,20 @@ export const saveRecipeSchema = z
     items: z.array(line).max(60),
   })
   .refine((r) => (r.product_id === null) !== (r.subproduct_id === null), { message: "Receita sem dono." });
+
+export const rawMaterialSchema = z.object({
+  name: z.string().trim().min(2, "Informe o nome da matéria-prima.").max(80),
+  unit: z.string().trim().min(1, "Informe a unidade.").max(12),
+  code: z
+    .string()
+    .trim()
+    .max(30)
+    .transform((v) => (v === "" ? null : v))
+    .nullable()
+    .default(null),
+});
+
+export const updateRawMaterialSchema = rawMaterialSchema.extend({ id: z.string().uuid() });
 
 export const createSubproductSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome do subproduto.").max(80),

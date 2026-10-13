@@ -107,7 +107,7 @@ export function SubproductHeader({
   }
 
   return (
-    <section className="rounded-lg border border-neutral-200 bg-white p-4">
+    <section className="rounded-lg border border-neutral-200 bg-white p-4 print:hidden">
       <div className="flex flex-wrap items-center gap-2">
         <input
           value={name}

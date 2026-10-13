@@ -12,7 +12,7 @@ export type RecipeResult = { error?: string; ok?: boolean; id?: string };
 const NO_ACCESS = "Não foi possível salvar. Verifique se você tem permissão para editar fichas técnicas.";
 
 function refresh() {
-  for (const path of ["/produtos/fichas", "/produtos/subprodutos"]) revalidatePath(path);
+  for (const path of ["/produtos/fichas", "/produtos/subprodutos", "/produtos/materias-primas"]) revalidatePath(path);
 }
 
 /** Replaces the whole recipe (yield, method and lines) of a product or a subproduct. */
@@ -38,6 +38,7 @@ export async function saveRecipe(input: unknown): Promise<RecipeResult> {
     const lines: RecipeLine[] = items.map((i) => ({
       name: i.name,
       subproductId: i.subproduct_id,
+      rawMaterialId: i.raw_material_id,
       quantity: i.quantity,
       unit: i.unit,
     }));
@@ -78,8 +79,9 @@ export async function saveRecipe(input: unknown): Promise<RecipeResult> {
       items.map((i, position) => ({
         recipe_id: recipeId,
         position,
-        ingredient_name: i.subproduct_id ? null : i.name,
+        ingredient_name: i.subproduct_id || i.raw_material_id ? null : i.name,
         subproduct_id: i.subproduct_id,
+        raw_material_id: i.raw_material_id,
         quantity: i.quantity,
         unit: i.unit,
       }))

@@ -8,6 +8,7 @@ const TABS = [
   { href: "/produtos", label: "Produtos", exact: true },
   { href: "/produtos/subprodutos", label: "Subprodutos", exact: false },
   { href: "/produtos/fichas", label: "Fichas técnicas", exact: false },
+  { href: "/produtos/materias-primas", label: "Matéria-prima", exact: false },
 ];
 
 export function ProdutosTabs() {

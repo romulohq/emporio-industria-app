@@ -1,7 +1,8 @@
-/** One ingredient line of a recipe: a loose input (name) or a subproduct (subproductId). */
+/** One ingredient line of a recipe: a raw material (rawMaterialId, name filled in), a subproduct (subproductId) or a loose input (name only). */
 export type RecipeLine = {
   name: string | null;
   subproductId: string | null;
+  rawMaterialId?: string | null;
   quantity: number;
   unit: string;
 };
