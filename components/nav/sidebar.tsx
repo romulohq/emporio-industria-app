@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
   LayoutDashboard,
@@ -40,15 +41,16 @@ export function Sidebar({
 }) {
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-neutral-200/70 bg-white print:hidden">
-      <div className="flex items-center gap-2.5 p-5">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-600 text-sm font-extrabold text-white">
-          EP
-        </span>
-        <div>
-          <p className="text-sm font-extrabold leading-tight text-neutral-900">Fábrica Grupo Empório</p>
-          <p className="text-xs text-neutral-500">Estoque &amp; Produção</p>
-        </div>
-      </div>
+      <Link href="/dashboard" className="block px-5 pb-4 pt-5" aria-label="Time Fábrica">
+        <Image
+          src="/time-fabrica-logo.png"
+          alt="Time Fábrica"
+          width={1200}
+          height={282}
+          priority
+          className="h-11 w-auto"
+        />
+      </Link>
 
       <nav className="flex-1 space-y-1 px-3">
         {NAV_ITEMS.map((item) => (
