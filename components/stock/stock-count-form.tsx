@@ -3,7 +3,8 @@
 import { useActionState, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Check, ChevronRight, Eraser, Highlighter, Pencil, Pin, Printer } from "lucide-react";
+import { Check, ChevronRight, Eraser, Pencil, Pin, Printer } from "lucide-react";
+import { MarkerIcon } from "@/components/icons/marker-icon";
 import { CoverageBar } from "@/components/stock/coverage-bar";
 import {
   autosaveStockCount,
@@ -175,12 +176,12 @@ export function StockCountForm({
   }
 
   // highlighter: null = off; otherwise the colour in use, or "eraser"
-  const highlights = useHighlights();
+  const highlights = useHighlights(date);
   const [pen, setPen] = useState<string | null>(null);
   function markProduct(productId: string) {
     if (pen === null) return;
-    if (pen === "eraser" || highlights[productId] === pen) setHighlight(productId, null);
-    else setHighlight(productId, pen);
+    if (pen === "eraser" || highlights[productId] === pen) setHighlight(date, productId, null);
+    else setHighlight(date, productId, pen);
   }
 
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -324,9 +325,9 @@ export function StockCountForm({
 
       {pen !== null && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm">
-          <Highlighter className="h-4 w-4 text-orange-600" />
+          <MarkerIcon className="h-4 w-4 text-orange-600" />
           <span className="font-medium text-neutral-800">Marca-texto</span>
-          <span className="text-xs text-neutral-500">Escolha a cor e clique nos produtos.</span>
+          <span className="text-xs text-neutral-500">Escolha a cor e clique nos produtos. As marcas valem só para este dia.</span>
           <div className="ml-1 flex items-center gap-1.5">
             {HIGHLIGHT_COLORS.map((c) => (
               <button
@@ -360,8 +361,8 @@ export function StockCountForm({
           </div>
           <div className="ml-auto flex items-center gap-3 text-xs">
             {Object.keys(highlights).length > 0 && (
-              <button type="button" onClick={clearHighlights} className="font-medium text-neutral-500 hover:text-red-600 hover:underline">
-                Limpar todas as marcas
+              <button type="button" onClick={() => clearHighlights(date)} className="font-medium text-neutral-500 hover:text-red-600 hover:underline">
+                Limpar as marcas deste dia
               </button>
             )}
             <button type="button" onClick={() => setPen(null)} className="font-semibold text-orange-700 hover:underline">
@@ -389,7 +390,7 @@ export function StockCountForm({
                       pen !== null ? "bg-orange-100 text-orange-700" : "text-neutral-400 hover:bg-neutral-100 hover:text-orange-600"
                     }`}
                   >
-                    <Highlighter className="h-4 w-4" />
+                    <MarkerIcon className="h-4 w-4" />
                   </button>
                 </span>
               </th>

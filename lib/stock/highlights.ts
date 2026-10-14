@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 
 /** Highlighter colours offered on the count screen. */
 export const HIGHLIGHT_COLORS = [
@@ -11,10 +11,12 @@ export const HIGHLIGHT_COLORS = [
   { value: "#fdba74", label: "Laranja" },
 ] as const;
 
-const KEY = "stock-highlights-v1";
+// v2: marks belong to one count date ("2026-10-15:<product id>" -> colour). The first version
+// kept one mark per product for every day, which is not what the count needs, so it is not read.
+const KEY = "stock-highlights-v2";
 const EMPTY: Record<string, string> = {};
 
-// product id -> colour, kept in this browser so the marks survive reloads
+// kept in this browser so the marks survive reloads
 let cache: Record<string, string> | null = null;
 const listeners = new Set<() => void>();
 
@@ -63,18 +65,30 @@ function subscribe(callback: () => void) {
   };
 }
 
-/** Marks a product with a colour (null removes the mark). */
-export function setHighlight(productId: string, color: string | null) {
+/** Marks a product, on one count date, with a colour (null removes the mark). */
+export function setHighlight(date: string, productId: string, color: string | null) {
   const next = { ...snapshot() };
-  if (color === null) delete next[productId];
-  else next[productId] = color;
+  const key = `${date}:${productId}`;
+  if (color === null) delete next[key];
+  else next[key] = color;
   commit(next);
 }
 
-export function clearHighlights() {
-  commit({});
+/** Removes every mark of one count date. */
+export function clearHighlights(date: string) {
+  const prefix = `${date}:`;
+  commit(Object.fromEntries(Object.entries(snapshot()).filter(([key]) => !key.startsWith(prefix))));
 }
 
-export function useHighlights(): Record<string, string> {
-  return useSyncExternalStore(subscribe, snapshot, () => EMPTY);
+/** The marks of one count date: product id -> colour. */
+export function useHighlights(date: string): Record<string, string> {
+  const all = useSyncExternalStore(subscribe, snapshot, () => EMPTY);
+  return useMemo(() => {
+    const prefix = `${date}:`;
+    return Object.fromEntries(
+      Object.entries(all)
+        .filter(([key]) => key.startsWith(prefix))
+        .map(([key, color]) => [key.slice(prefix.length), color])
+    );
+  }, [all, date]);
 }
