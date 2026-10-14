@@ -3,7 +3,7 @@
 import { useActionState, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, Pencil, Pin, Printer } from "lucide-react";
+import { Check, ChevronRight, Eraser, Highlighter, Pencil, Pin, Printer } from "lucide-react";
 import { CoverageBar } from "@/components/stock/coverage-bar";
 import {
   autosaveStockCount,
@@ -14,6 +14,7 @@ import {
 } from "@/app/(app)/estoque/contagem-actions";
 import { unitOptionsFor } from "@/lib/format/units";
 import { setPinnedDate, usePinnedDate } from "@/lib/stock/pinned-date";
+import { HIGHLIGHT_COLORS, clearHighlights, setHighlight, useHighlights } from "@/lib/stock/highlights";
 import { StockPrintReport, type PrintGroup } from "@/components/stock/stock-print-report";
 import { coverageOf, stockUnits } from "@/lib/stock/coverage";
 
@@ -173,6 +174,15 @@ export function StockCountForm({
     router.refresh();
   }
 
+  // highlighter: null = off; otherwise the colour in use, or "eraser"
+  const highlights = useHighlights();
+  const [pen, setPen] = useState<string | null>(null);
+  function markProduct(productId: string) {
+    if (pen === null) return;
+    if (pen === "eraser" || highlights[productId] === pen) setHighlight(productId, null);
+    else setHighlight(productId, pen);
+  }
+
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   function toggleSection(name: string) {
     setCollapsed((prev) => {
@@ -312,11 +322,77 @@ export function StockCountForm({
         <p className="text-sm text-green-700">Contagem salva — {state.saved} produtos.</p>
       )}
 
+      {pen !== null && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm">
+          <Highlighter className="h-4 w-4 text-orange-600" />
+          <span className="font-medium text-neutral-800">Marca-texto</span>
+          <span className="text-xs text-neutral-500">Escolha a cor e clique nos produtos.</span>
+          <div className="ml-1 flex items-center gap-1.5">
+            {HIGHLIGHT_COLORS.map((c) => (
+              <button
+                key={c.value}
+                type="button"
+                onClick={() => setPen(c.value)}
+                aria-label={c.label}
+                title={c.label}
+                aria-pressed={pen === c.value}
+                className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${
+                  pen === c.value ? "border-neutral-800" : "border-white shadow-[0_0_0_1px_rgb(212,212,212)]"
+                }`}
+                style={{ backgroundColor: c.value }}
+              >
+                {pen === c.value && <Check className="h-3 w-3 text-neutral-800" strokeWidth={3} />}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setPen("eraser")}
+              aria-label="Borracha"
+              title="Borracha: clique num produto marcado para tirar a marca"
+              aria-pressed={pen === "eraser"}
+              className={`ml-1 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium ${
+                pen === "eraser" ? "border-neutral-800 bg-neutral-100 text-neutral-900" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"
+              }`}
+            >
+              <Eraser className="h-3.5 w-3.5" />
+              Borracha
+            </button>
+          </div>
+          <div className="ml-auto flex items-center gap-3 text-xs">
+            {Object.keys(highlights).length > 0 && (
+              <button type="button" onClick={clearHighlights} className="font-medium text-neutral-500 hover:text-red-600 hover:underline">
+                Limpar todas as marcas
+              </button>
+            )}
+            <button type="button" onClick={() => setPen(null)} className="font-semibold text-orange-700 hover:underline">
+              Concluir
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
         <table className="w-full text-left text-sm">
           <thead className="bg-neutral-50 text-xs uppercase text-neutral-500">
             <tr>
-              <th className="px-4 py-2">Produto</th>
+              <th className="px-4 py-2">
+                <span className="inline-flex items-center gap-2">
+                  Produto
+                  <button
+                    type="button"
+                    onClick={() => setPen((current) => (current === null ? HIGHLIGHT_COLORS[0].value : null))}
+                    aria-pressed={pen !== null}
+                    aria-label="Marca-texto"
+                    title="Marca-texto: escolha uma cor e clique nos produtos para marcar"
+                    tabIndex={-1}
+                    className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors ${
+                      pen !== null ? "bg-orange-100 text-orange-700" : "text-neutral-400 hover:bg-neutral-100 hover:text-orange-600"
+                    }`}
+                  >
+                    <Highlighter className="h-4 w-4" />
+                  </button>
+                </span>
+              </th>
               <th className="px-3 py-2 text-right">Mínimo</th>
               <th className="px-3 py-2 text-right">Por caixa</th>
               <th className="px-3 py-2">Medida</th>
@@ -337,6 +413,9 @@ export function StockCountForm({
                 units={units}
                 changeUnit={changeUnit}
                 canEdit={canEdit}
+                highlights={highlights}
+                pen={pen}
+                onMark={markProduct}
                 editing={editing}
                 draft={draft}
                 setDraft={setDraft}
@@ -378,6 +457,9 @@ function GroupRows({
   units,
   changeUnit,
   canEdit,
+  highlights,
+  pen,
+  onMark,
   editing,
   draft,
   setDraft,
@@ -391,6 +473,9 @@ function GroupRows({
   units: Record<string, string>;
   changeUnit: (productId: string, unit: string) => void;
   canEdit: boolean;
+  highlights: Record<string, string>;
+  pen: string | null;
+  onMark: (productId: string) => void;
   editing: boolean;
   draft: Record<string, Draft>;
   setDraft: React.Dispatch<React.SetStateAction<Record<string, Draft>>>;
@@ -424,7 +509,17 @@ function GroupRows({
         const cov = stock === null ? null : coverageOf(stock, min);
         return (
           <tr key={row.id} className="border-t border-neutral-100">
-            <td className="px-4 py-1.5 text-neutral-800">{row.name}</td>
+            <td
+              className={`px-4 py-1.5 text-neutral-800 ${pen !== null ? "cursor-pointer select-none" : ""}`}
+              onClick={pen !== null ? () => onMark(row.id) : undefined}
+            >
+              <span
+                className="rounded px-1 py-0.5 -mx-1 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]"
+                style={highlights[row.id] ? { backgroundColor: highlights[row.id] } : undefined}
+              >
+                {row.name}
+              </span>
+            </td>
             <td className="px-3 py-1.5 text-right tabular-nums text-neutral-500">
               {editing ? (
                 <input
