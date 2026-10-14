@@ -56,20 +56,19 @@ export default async function PedidosPage() {
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {[
-          { value: counts.on_time, label: "No prazo", color: "text-green-600" },
-          { value: counts.overdue, label: "Sem enviar", color: "text-orange-500" },
-          { value: counts.late, label: "Pedidos enviados atrasados", color: "text-violet-600" },
-        ].map((stat) => (
-          <div
-            key={stat.label}
-            className="flex items-baseline gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-1.5"
-          >
-            <span className={`text-lg font-extrabold leading-none ${stat.color}`}>{stat.value}</span>
-            <span className="text-xs text-neutral-500">{stat.label}</span>
-          </div>
-        ))}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="rounded-lg border border-neutral-200 bg-white p-3">
+          <p className="text-2xl font-extrabold text-green-600">{counts.on_time}</p>
+          <p className="text-xs text-neutral-500">No prazo</p>
+        </div>
+        <div className="rounded-lg border border-neutral-200 bg-white p-3">
+          <p className="text-2xl font-extrabold text-orange-500">{counts.overdue}</p>
+          <p className="text-xs text-neutral-500">Sem enviar</p>
+        </div>
+        <div className="rounded-lg border border-neutral-200 bg-white p-3">
+          <p className="text-2xl font-extrabold text-violet-600">{counts.late}</p>
+          <p className="text-xs text-neutral-500">Pedidos enviados atrasados</p>
+        </div>
       </div>
 
       {entries.length === 0 ? (

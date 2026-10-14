@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { correctStockReport } from "@/app/(app)/pedidos/respostas/actions";
 import { cn } from "@/lib/utils";
@@ -22,16 +22,33 @@ export function ResponseSessionRow({
   storeName,
   createdAt,
   items,
+  selected,
+  onToggleSelected,
+  onDelete,
+  busy,
 }: {
   storeName: string;
   createdAt: string;
   items: ResponseItem[];
+  selected: boolean;
+  onToggleSelected: () => void;
+  onDelete: () => void;
+  busy: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
   return (
     <>
-      <tr className="border-t border-neutral-100">
+      <tr className={cn("border-t border-neutral-100", selected && "bg-orange-50/50")}>
+        <td className="w-10 px-4 py-2">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggleSelected}
+            aria-label={`Selecionar envio de ${storeName} em ${createdAt}`}
+            className="h-4 w-4 cursor-pointer accent-orange-600"
+          />
+        </td>
         <td className="px-4 py-2 text-neutral-500">{createdAt}</td>
         <td className="px-4 py-2 font-medium text-neutral-900">{storeName}</td>
         <td className="px-4 py-2 text-neutral-500">
@@ -46,12 +63,22 @@ export function ResponseSessionRow({
             {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             {open ? "Ocultar detalhes" : "Ver detalhes"}
           </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={busy}
+            aria-label={`Excluir envio de ${storeName} em ${createdAt}`}
+            title="Excluir este envio"
+            className="ml-3 inline-flex h-7 w-7 items-center justify-center rounded-md align-middle text-neutral-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
         </td>
       </tr>
 
       {open && (
         <tr>
-          <td colSpan={4} className="bg-neutral-50 px-4 py-3">
+          <td colSpan={5} className="bg-neutral-50 px-4 py-3">
             <table className="w-full text-left text-sm">
               <thead className="text-xs uppercase text-neutral-500">
                 <tr>

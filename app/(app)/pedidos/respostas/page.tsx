@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth/get-session";
 import { PedidosTabs } from "@/components/orders/pedidos-tabs";
 import { StoreFilter } from "@/components/orders/store-filter";
-import { ResponseSessionRow, type ResponseItem } from "@/components/orders/response-session-row";
+import { ResponsesTable } from "@/components/orders/responses-table";
+import type { ResponseItem } from "@/components/orders/response-session-row";
 import { formatDateTime } from "@/lib/format/labels";
 import type {
   Product,
@@ -91,7 +92,8 @@ export default async function RespostasLojasPage({
           Últimos {MAX_SESSIONS} envios do formulário de estoque, um por loja/horário — clique em
           &ldquo;Ver detalhes&rdquo; pra abrir os produtos daquele envio. Corrigir um valor
           registra um novo envio (não apaga o histórico) e já recalcula as ordens
-          automaticamente.
+          automaticamente. Para apagar registros, marque os envios e use &ldquo;Excluir
+          selecionados&rdquo; (ou a lixeira da linha).
         </p>
       </div>
 
@@ -101,35 +103,14 @@ export default async function RespostasLojasPage({
         <StoreFilter stores={(stores ?? []) as Store[]} value={storeFilter ?? ""} />
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-neutral-50 text-xs uppercase text-neutral-500">
-            <tr>
-              <th className="px-4 py-2">Data/hora</th>
-              <th className="px-4 py-2">Loja</th>
-              <th className="px-4 py-2">Itens</th>
-              <th className="px-4 py-2" />
-            </tr>
-          </thead>
-          <tbody>
-            {sessions.map((session) => (
-              <ResponseSessionRow
-                key={session.submissionId}
-                storeName={storesById[session.storeId]?.name ?? "—"}
-                createdAt={formatDateTime(session.createdAt)}
-                items={session.items}
-              />
-            ))}
-            {sessions.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-neutral-500">
-                  Nenhuma resposta registrada ainda.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <ResponsesTable
+        sessions={sessions.map((session) => ({
+          submissionId: session.submissionId,
+          storeName: storesById[session.storeId]?.name ?? "—",
+          createdAt: formatDateTime(session.createdAt),
+          items: session.items,
+        }))}
+      />
     </div>
   );
 }
