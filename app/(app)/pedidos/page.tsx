@@ -56,37 +56,38 @@ export default async function PedidosPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="rounded-lg border border-neutral-200 bg-white p-3">
-          <p className="text-2xl font-extrabold text-green-600">{counts.on_time}</p>
-          <p className="text-xs text-neutral-500">No prazo</p>
-        </div>
-        <div className="rounded-lg border border-neutral-200 bg-white p-3">
-          <p className="text-2xl font-extrabold text-orange-500">{counts.overdue}</p>
-          <p className="text-xs text-neutral-500">Sem enviar</p>
-        </div>
-        <div className="rounded-lg border border-neutral-200 bg-white p-3">
-          <p className="text-2xl font-extrabold text-violet-600">{counts.late}</p>
-          <p className="text-xs text-neutral-500">Pedidos enviados atrasados</p>
-        </div>
+      <div className="flex flex-wrap gap-2">
+        {[
+          { value: counts.on_time, label: "No prazo", color: "text-green-600" },
+          { value: counts.overdue, label: "Sem enviar", color: "text-orange-500" },
+          { value: counts.late, label: "Pedidos enviados atrasados", color: "text-violet-600" },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="flex items-baseline gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-1.5"
+          >
+            <span className={`text-lg font-extrabold leading-none ${stat.color}`}>{stat.value}</span>
+            <span className="text-xs text-neutral-500">{stat.label}</span>
+          </div>
+        ))}
       </div>
 
       {entries.length === 0 ? (
         <p className="text-sm text-neutral-500">Nenhuma loja tem prazo de envio hoje.</p>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {entries.map((entry) => {
             const config = STATUS_CONFIG[entry.status];
             return (
-              <div key={`${entry.storeId}:${entry.deliveryDate}`} className={`rounded-lg border p-3 ${config.card}`}>
+              <div key={`${entry.storeId}:${entry.deliveryDate}`} className={`rounded-lg border px-3 py-2 ${config.card}`}>
                 <div className="flex items-center gap-2">
-                  <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${config.dot}`} />
-                  <span className="font-semibold text-neutral-900">{entry.storeName}</span>
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${config.dot}`} />
+                  <span className="truncate text-sm font-semibold text-neutral-900">{entry.storeName}</span>
+                  <span className="ml-auto shrink-0 text-[11px] text-neutral-500">
+                    Entrega {WEEKDAY_LABELS[entry.deliveryWeekday]}, {formatBrDate(entry.deliveryDate)}
+                  </span>
                 </div>
-                <p className="mt-1 text-xs text-neutral-500">
-                  Entrega: {WEEKDAY_LABELS[entry.deliveryWeekday]}, {formatBrDate(entry.deliveryDate)}
-                </p>
-                <p className="mt-1 text-sm text-neutral-700">{config.label(entry)}</p>
+                <p className="mt-0.5 text-xs leading-snug text-neutral-600">{config.label(entry)}</p>
               </div>
             );
           })}
