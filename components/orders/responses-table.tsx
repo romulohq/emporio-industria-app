@@ -40,7 +40,7 @@ export function ResponsesTable({ sessions }: { sessions: ResponseSession[] }) {
       ids.length === 1
         ? `Excluir o envio de ${label}? Isso apaga o registro de forma definitiva.`
         : `Excluir ${ids.length} envios selecionados? Isso apaga os registros de forma definitiva.`;
-    if (!window.confirm(`${question}\n\nAs ordens de produção já geradas não são alteradas.`)) return;
+    if (!window.confirm(`${question}\n\nA quantidade que esse envio colocou nas ordens de produção de hoje em diante também é retirada. Ordens de datas passadas não mudam.`)) return;
     setError(null);
     startTransition(async () => {
       const result = await deleteStockSubmissions(ids);

@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/auth/get-session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stockReportRowSchema } from "@/lib/validations/stock-report";
 import { z } from "zod";
+import { fortalezaDateISO } from "@/lib/dates";
 
 /**
  * Records a correction as a brand-new report row (same mechanism the public
@@ -44,8 +45,11 @@ export type DeleteSubmissionsResult = { error?: string; deleted?: number };
 
 /**
  * Permanently deletes whole stock submissions (every product row sent together by a store).
- * Orders already generated are left exactly as they are: the contribution rows only lose their
- * link to the deleted report, and the late-report decisions about it are removed with it.
+ * What the submission put into production orders is taken back out, so a deleted test send does not
+ * keep feeding an order: for orders whose delivery date is today or later the store's quantity is
+ * removed (an order that ends up empty is cancelled). Orders of past dates are history: they keep
+ * their quantities and only lose the link to the deleted report. Late-report decisions about the
+ * submission are removed with it.
  * Uses the admin client because store_stock_reports has no authenticated delete policy.
  */
 export async function deleteStockSubmissions(input: unknown): Promise<DeleteSubmissionsResult> {
@@ -64,11 +68,48 @@ export async function deleteStockSubmissions(input: unknown): Promise<DeleteSubm
     const ids = (rows ?? []).map((r) => r.id as string);
     if (ids.length === 0) continue;
 
-    const { error: contribError } = await admin
+    const { data: contributions, error: contribReadError } = await admin
       .from("production_order_contributions")
-      .update({ report_id: null })
+      .select("order_id, store_id, quantity")
       .in("report_id", ids);
-    if (contribError) return { error: "Não foi possível excluir. Tente novamente.", deleted };
+    if (contribReadError) return { error: "Não foi possível excluir. Tente novamente.", deleted };
+
+    if ((contributions ?? []).length > 0) {
+      const orderIds = [...new Set((contributions ?? []).map((c) => c.order_id as string))];
+      const { data: orders } = await admin
+        .from("production_orders")
+        .select("id, delivery_date, quantity")
+        .in("id", orderIds);
+      const orderById = new Map((orders ?? []).map((o) => [o.id as string, o]));
+      const today = fortalezaDateISO();
+
+      for (const contribution of contributions ?? []) {
+        const order = orderById.get(contribution.order_id as string);
+        const open = !!order && !!order.delivery_date && String(order.delivery_date).slice(0, 10) >= today;
+        if (open && order) {
+          const { error: removeError } = await admin
+            .from("production_order_contributions")
+            .delete()
+            .eq("order_id", contribution.order_id)
+            .eq("store_id", contribution.store_id);
+          if (removeError) return { error: "Não foi possível excluir. Tente novamente.", deleted };
+          const remaining = Math.max(0, Math.round((Number(order.quantity) - Number(contribution.quantity)) * 1000) / 1000);
+          order.quantity = remaining;
+          const { error: orderError } = await admin
+            .from("production_orders")
+            .update(remaining <= 0 ? { status: "cancelled" } : { quantity: remaining })
+            .eq("id", order.id);
+          if (orderError) return { error: "Não foi possível excluir. Tente novamente.", deleted };
+        } else {
+          const { error: unlinkError } = await admin
+            .from("production_order_contributions")
+            .update({ report_id: null })
+            .eq("order_id", contribution.order_id)
+            .eq("store_id", contribution.store_id);
+          if (unlinkError) return { error: "Não foi possível excluir. Tente novamente.", deleted };
+        }
+      }
+    }
 
     const { error: decisionError } = await admin.from("late_report_decisions").delete().in("report_id", ids);
     if (decisionError) return { error: "Não foi possível excluir. Tente novamente.", deleted };
