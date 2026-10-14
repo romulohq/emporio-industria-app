@@ -87,6 +87,8 @@ export function ScheduleGrid({
   const [printSections, setPrintSections] = useState<Set<string>>(() => new Set(SCHEDULE_SECTIONS.map((s) => s.key)));
   const printRef = useRef<HTMLDivElement>(null);
   const allPrintSelected = printSections.size === SCHEDULE_SECTIONS.length;
+  // null = follow the recommendation for the selected blocks; otherwise the user's choice
+  const [orientationChoice, setOrientationChoice] = useState<"landscape" | "portrait" | null>(null);
   function togglePrintSection(key: string) {
     setPrintSections((prev) => {
       const next = new Set(prev);
@@ -126,6 +128,26 @@ export function ScheduleGrid({
     () => SCHEDULE_SECTIONS.map((s) => ({ ...s, items: items.filter((i) => i.section === s.key) })),
     [items]
   );
+
+  // Fitting the printout on one A4 page: the rows share the page height left after the title,
+  // the notes and the legend (~62 mm) and each block's header (~13 mm). Below ~3.2 mm per row the
+  // type would be unreadable, so then the rows keep their normal size and the blocks flow over pages.
+  const printPlan = useMemo(() => {
+    const chosen = bySection.filter((b) => printSections.has(b.key));
+    const rows = chosen.reduce((sum, b) => sum + b.items.length, 0);
+    const pageHeight = { landscape: 194, portrait: 281 };
+    const rowFor = (o: "landscape" | "portrait") =>
+      rows === 0 ? 6 : (pageHeight[o] - 62 - 13 * chosen.length) / rows;
+    const recommended: "landscape" | "portrait" = rowFor("landscape") >= 3.8 ? "landscape" : "portrait";
+    const orientation = orientationChoice ?? recommended;
+    const fitRow = rowFor(orientation);
+    return { orientation, recommended, fit: rows > 0 && fitRow >= 3.2, rowMm: Math.min(5.2, fitRow) };
+  }, [bySection, printSections, orientationChoice]);
+  const printCss = `@media print { @page { size: A4 ${printPlan.orientation}; margin: 8mm; } * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }${
+    printPlan.fit
+      ? ` .sched-fit section tbody tr { height: ${printPlan.rowMm}mm; } .sched-fit section tbody td { padding-top: 0 !important; padding-bottom: 0 !important; } .sched-fit section tbody td span { font-size: ${(printPlan.rowMm * 0.6).toFixed(2)}mm !important; line-height: 1 !important; } .sched-fit section tbody td button { font-size: ${(printPlan.rowMm * 0.55).toFixed(2)}mm !important; min-height: 0 !important; height: ${(printPlan.rowMm * 0.8).toFixed(2)}mm !important; padding-top: 0 !important; padding-bottom: 0 !important; line-height: 1 !important; }`
+      : ""
+  } }`;
 
   function run(action: () => Promise<ScheduleResult>, onFail?: () => void, refresh = false) {
     setError(null);
@@ -185,8 +207,8 @@ export function ScheduleGrid({
   }
 
   return (
-    <div className="space-y-4">
-      <style>{"@media print { @page { size: A4 landscape; margin: 8mm; } * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }"}</style>
+    <div className="sched-fit space-y-4">
+      <style>{printCss}</style>
 
       <div className="flex flex-wrap items-center justify-end gap-2 print:hidden">
         {canEdit && !hasCells && (
@@ -260,6 +282,36 @@ export function ScheduleGrid({
                     </label>
                   );
                 })}
+              </div>
+              <div className="mt-3 border-t border-neutral-100 pt-2.5">
+                <p className="mb-1.5 text-xs font-semibold text-neutral-900">Orientação da folha</p>
+                <div className="inline-flex w-full rounded-lg border border-neutral-200 bg-white p-0.5 text-xs">
+                  {(
+                    [
+                      ["landscape", "Paisagem"],
+                      ["portrait", "Retrato"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setOrientationChoice(value)}
+                      className={`flex-1 rounded-md px-2 py-1.5 font-medium ${
+                        printPlan.orientation === value ? "bg-orange-600 text-white" : "text-neutral-600 hover:bg-neutral-50"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-[11px] leading-snug text-neutral-500">
+                  {printPlan.fit
+                    ? "A seleção é ajustada para caber em uma folha."
+                    : "Muitos produtos para uma folha nesta orientação: eles seguem em mais de uma página, sem partir um setor ao meio."}
+                  {orientationChoice === null && printPlan.orientation === "portrait" && printPlan.recommended === "portrait"
+                    ? " Retrato recomendado para esta seleção."
+                    : ""}
+                </p>
               </div>
               <button
                 type="button"
