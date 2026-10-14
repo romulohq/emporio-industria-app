@@ -47,6 +47,36 @@ export async function saveRecipe(input: unknown): Promise<RecipeResult> {
     }
   }
 
+  // ingredients typed by name that are not registered yet become raw materials (same name, case aside)
+  const typed = items.filter((i) => !i.raw_material_id && !i.subproduct_id && i.name);
+  const resolved = new Map<string, string>();
+  if (typed.length > 0) {
+    const keyOf = (name: string) => name.trim().toLowerCase();
+    const loadIds = async () => {
+      const { data } = await supabase.from("raw_materials").select("id, name");
+      for (const m of (data ?? []) as { id: string; name: string }[]) resolved.set(keyOf(m.name), m.id);
+    };
+    await loadIds();
+    const toCreate = new Map<string, { name: string; unit: string }>();
+    for (const i of typed) {
+      const key = keyOf(i.name as string);
+      if (!resolved.has(key) && !toCreate.has(key)) toCreate.set(key, { name: (i.name as string).trim(), unit: i.unit });
+    }
+    if (toCreate.size > 0) {
+      const { error: createError } = await supabase
+        .from("raw_materials")
+        .insert([...toCreate.values()].map((m) => ({ ...m, created_by: userId })));
+      // a name registered in the meantime is fine: read the ids again either way
+      if (createError && createError.code !== "23505") return { error: NO_ACCESS };
+      await loadIds();
+    }
+    for (const i of typed) {
+      const id = resolved.get(keyOf(i.name as string));
+      if (!id) return { error: NO_ACCESS };
+      i.raw_material_id = id;
+    }
+  }
+
   const ownerColumn = product_id ? "product_id" : "subproduct_id";
   const ownerId = (product_id ?? subproduct_id) as string;
   const { data: existing } = await supabase.from("recipes").select("id").eq(ownerColumn, ownerId).maybeSingle();

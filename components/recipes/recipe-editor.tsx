@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Calculator, ListTree, Plus, Printer, Trash2, Layers, Check } from "lucide-react";
 import { saveRecipe } from "@/app/(app)/produtos/fichas/actions";
 import { RecipeTree } from "@/components/recipes/recipe-tree";
@@ -61,6 +62,7 @@ export function RecipeEditor({
   subRecipes: Record<string, SubproductRecipe>;
   canEdit: boolean;
 }) {
+  const router = useRouter();
   const ownerSubproductId = "subproductId" in owner ? owner.subproductId : null;
   const [view, setView] = useState<"edit" | "tree" | "scale">("edit");
   // scaling: which quantity the user is fixing ("yield", a line key, or a plain factor) and how much of it
@@ -115,7 +117,7 @@ export function RecipeEditor({
         .map((l) => {
           const raw = l.kind === "raw" ? rawByName.get(matchKey(l.name)) : undefined;
           return {
-            name: l.kind === "raw" ? (raw?.name ?? "") : l.kind === "ingredient" ? l.name.trim() : null,
+            name: l.kind === "subproduct" ? null : (raw?.name ?? l.name.trim()),
             subproductId: l.kind === "subproduct" ? l.subproductId : null,
             rawMaterialId: raw?.id ?? null,
             quantity: toNumber(l.quantity),
@@ -146,7 +148,7 @@ export function RecipeEditor({
       lines.flatMap((l) => {
         const quantity = toNumber(l.quantity);
         const label =
-          l.kind === "subproduct" ? (subNames[l.subproductId] ?? "") : (rawByName.get(matchKey(l.name))?.name ?? (l.kind === "ingredient" ? l.name.trim() : ""));
+          l.kind === "subproduct" ? (subNames[l.subproductId] ?? "") : (rawByName.get(matchKey(l.name))?.name ?? l.name.trim());
         if (!label || !Number.isFinite(quantity) || quantity <= 0 || l.unit.trim() === "") return [];
         return [{ key: l.key, label, quantity, unit: l.unit.trim() }];
       }),
@@ -183,7 +185,7 @@ export function RecipeEditor({
     if (validLines.length !== lines.length) {
       setMessage({
         ok: false,
-        text: "Há linhas incompletas: escolha a matéria-prima cadastrada (ou o subproduto), a quantidade e a unidade, ou remova a linha.",
+        text: "Há linhas incompletas: informe o ingrediente (ou o subproduto), a quantidade e a unidade, ou remova a linha.",
       });
       return;
     }
@@ -208,6 +210,8 @@ export function RecipeEditor({
         })),
       });
       setMessage(result.error ? { ok: false, text: result.error } : { ok: true, text: "Ficha técnica salva." });
+      // new raw materials created by this save show up in the suggestions right away
+      if (!result.error) router.refresh();
     });
   }
 
@@ -429,10 +433,10 @@ export function RecipeEditor({
                         update(line.key, { name: e.target.value, ...(match && !line.quantity ? { unit: match.unit } : {}) });
                       }}
                       list="recipe-raw-materials"
-                      placeholder="Matéria-prima (digite para buscar)"
-                      aria-label="Matéria-prima"
+                      placeholder="Ingrediente (digite para buscar ou cadastrar)"
+                      aria-label="Ingrediente"
                       disabled={!canEdit}
-                      className={`${field} ${line.name.trim() !== "" && !rawByName.has(matchKey(line.name)) ? "border-red-400" : ""}`}
+                      className={field}
                     />
                   ) : line.kind === "ingredient" ? (
                     <input
@@ -505,12 +509,10 @@ export function RecipeEditor({
                 <button
                   type="button"
                   onClick={() => add("raw")}
-                  disabled={rawMaterials.length === 0}
-                  title={rawMaterials.length === 0 ? "Cadastre uma matéria-prima na aba Matéria-prima" : undefined}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  Adicionar matéria-prima
+                  Adicionar ingrediente
                 </button>
                 <button
                   type="button"
@@ -524,14 +526,13 @@ export function RecipeEditor({
                 </button>
               </div>
             )}
-            {rawMaterials.length === 0 && (
-              <p className="mt-2 text-xs text-neutral-500">
-                Ainda não há matérias-primas cadastradas.{" "}
-                <Link href="/produtos/materias-primas" className="font-medium text-orange-700 hover:underline">
-                  Cadastrar matérias-primas
-                </Link>
-              </p>
-            )}
+            <p className="mt-2 text-xs text-neutral-500">
+              Ao digitar, aparecem as matérias-primas já cadastradas. Um ingrediente novo é cadastrado como matéria-prima
+              ao salvar a ficha.{" "}
+              <Link href="/produtos/materias-primas" className="font-medium text-orange-700 hover:underline">
+                Ver matérias-primas
+              </Link>
+            </p>
             <datalist id="recipe-raw-materials">
               {rawMaterials.map((m) => (
                 <option key={m.id} value={m.name} />

@@ -405,6 +405,7 @@ function GroupRows({
           <button
             type="button"
             onClick={onToggle}
+            tabIndex={-1}
             aria-expanded={!isCollapsed}
             className="flex w-full items-center gap-1.5 px-4 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-400 hover:text-neutral-600"
           >
@@ -466,6 +467,8 @@ function GroupRows({
                   value={unit}
                   onChange={(ev) => changeUnit(row.id, ev.target.value)}
                   aria-label={`Medida de ${row.name}`}
+                  // Tab runs down the "Caixas" column: the unit select is reached with the mouse
+                  tabIndex={-1}
                   className="rounded-md border border-neutral-200 bg-white px-1.5 py-1 text-base text-neutral-700 sm:text-xs"
                 >
                   {unitOptionsFor(row.unit).map((u) => (
