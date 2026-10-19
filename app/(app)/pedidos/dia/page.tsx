@@ -36,6 +36,7 @@ type CycleReport = {
   delivery_date: string | null;
   created_at: string;
   late_for_order_id: string | null;
+  late_without_order: boolean;
   late_acknowledged: boolean;
 };
 
@@ -153,7 +154,7 @@ export default async function OrdensPorDiaPage() {
     checkDates.length
       ? supabase
           .from("store_stock_reports")
-          .select("id, store_id, delivery_date, created_at, late_for_order_id, late_acknowledged")
+          .select("id, store_id, delivery_date, created_at, late_for_order_id, late_without_order, late_acknowledged")
           .in("delivery_date", checkDates)
       : Promise.resolve({ data: [] as CycleReport[] }),
   ]);
@@ -169,7 +170,7 @@ export default async function OrdensPorDiaPage() {
 
   // what a late report's approval decision was, if any (admin client: decisions are admin/sector-gated)
   const lateReportIds = ((cycleReports ?? []) as CycleReport[])
-    .filter((r) => r.late_for_order_id !== null && r.late_acknowledged)
+    .filter((r) => (r.late_for_order_id !== null || r.late_without_order) && r.late_acknowledged)
     .map((r) => r.id);
   const lastDecisionByReport = new Map<string, string>();
   if (lateReportIds.length) {

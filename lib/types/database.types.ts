@@ -61,6 +61,7 @@ export type StoreStockReport = {
   delivery_date: string | null;
   late_for_order_id: string | null;
   late_acknowledged: boolean;
+  late_without_order: boolean;
   created_at: string;
 };
 

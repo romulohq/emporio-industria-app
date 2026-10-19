@@ -12,7 +12,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     const { count } = await supabase
       .from("store_stock_reports")
       .select("id", { count: "exact", head: true })
-      .not("late_for_order_id", "is", null)
+      .or("late_for_order_id.not.is.null,late_without_order.eq.true")
       .eq("late_acknowledged", false)
       .gt("delivery_date", fortalezaDateISO());
     lateReportsCount = count ?? 0;

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stockReportRowSchema } from "@/lib/validations/stock-report";
 import { computeCurrentCycle } from "@/lib/delivery-schedule";
+import { flagLateWithoutOrder } from "@/lib/orders/late-without-order";
 import { compareSectorNames } from "@/lib/format/sectors";
 import type { StoreDeliveryDay } from "@/lib/types/database.types";
 
@@ -78,11 +79,14 @@ export async function submitStockReport(
     return { error: "Informe ao menos uma quantidade." };
   }
 
-  const { error } = await admin.from("store_stock_reports").insert(rows);
+  const { data: inserted, error } = await admin.from("store_stock_reports").insert(rows).select("id");
 
   if (error) {
     return { error: "Não foi possível enviar o relato. Tente novamente." };
   }
+
+  // late and no order generated for that delivery: wait for the admin's approval
+  await flagLateWithoutOrder((inserted ?? []).map((r) => r.id as string));
 
   revalidatePath(`/relatar-estoque/${token}`);
 

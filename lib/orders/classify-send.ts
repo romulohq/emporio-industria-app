@@ -2,6 +2,8 @@ export type CycleReportLike = {
   id: string;
   created_at: string;
   late_for_order_id: string | null;
+  /** arrived after the deadline when no order existed for the delivery (nothing to flag against) */
+  late_without_order?: boolean;
   late_acknowledged: boolean;
 };
 
@@ -26,7 +28,7 @@ export function classifyCycleReports(
     const kind =
       sentAt <= deadlineMs
         ? "inTime"
-        : r.late_for_order_id === null
+        : r.late_for_order_id === null && !r.late_without_order
           ? "auto"
           : !r.late_acknowledged
             ? "awaiting"

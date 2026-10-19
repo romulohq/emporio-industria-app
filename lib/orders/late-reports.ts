@@ -29,7 +29,7 @@ export async function getUndecidedLateReports(): Promise<LateReportRow[]> {
   const { data: late } = await supabase
     .from("store_stock_reports")
     .select("*")
-    .not("late_for_order_id", "is", null)
+    .or("late_for_order_id.not.is.null,late_without_order.eq.true")
     .eq("late_acknowledged", false)
     .gt("delivery_date", fortalezaDateISO())
     .order("created_at", { ascending: false });

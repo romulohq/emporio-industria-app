@@ -10,6 +10,14 @@ const r = (id: string, createdAt: string, flagged: boolean, acknowledged = false
 });
 
 describe("classifyCycleReports", () => {
+  it("a late report that arrived when no order existed waits for approval, then counts as approved", () => {
+    const waiting: CycleReportLike = { ...r("n", "2026-10-04T19:56:00Z", false), late_without_order: true };
+    expect(classifyCycleReports([waiting], DEADLINE, new Map())?.state).toBe("late");
+    const approved = { ...waiting, late_acknowledged: true };
+    expect(classifyCycleReports([approved], DEADLINE, new Map([["n", "regenerated"]]))?.state).toBe("on_time");
+    expect(classifyCycleReports([approved], DEADLINE, new Map([["n", "kept"]]))?.state).toBe("refused");
+  });
+
   it("no reports -> null", () => {
     expect(classifyCycleReports([], DEADLINE, new Map())).toBeNull();
   });

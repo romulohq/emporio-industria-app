@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { fortalezaDateISO, zonedInstant, addDaysISO } from "@/lib/dates";
 import { nextDeliveryDate, productionDateForDelivery, SEND_DEADLINE_TIME } from "@/lib/delivery-schedule";
 import { planRelink } from "@/lib/orders/plan-relink";
+import { flagLateWithoutOrder } from "@/lib/orders/late-without-order";
 import type {
   Product,
   ProductionOrder,
@@ -67,13 +68,16 @@ export async function relinkStoreReports(additions: WeekdayAddition[]): Promise<
       if (!deliveryDate) continue;
       await admin
         .from("store_stock_reports")
-        .update({ delivery_date: deliveryDate, late_for_order_id: null, late_acknowledged: false })
+        .update({ delivery_date: deliveryDate, late_for_order_id: null, late_without_order: false, late_acknowledged: false })
         .eq("id", report.id);
       relinkedRows.push({ report, deliveryDate });
     }
   }
 
-  const flagged = await flagReportsMissingFromGeneratedOrders(relinkedRows);
+  const flagged =
+    (await flagReportsMissingFromGeneratedOrders(relinkedRows)) +
+    // deliveries with no order at all: late reports wait for approval instead
+    (await flagLateWithoutOrder(relinkedRows.map((r) => r.report.id)));
   return { relinked: relinkedRows.length, flagged };
 }
 
@@ -145,7 +149,7 @@ export async function acknowledgeLateReportsForRegeneration(
     .from("store_stock_reports")
     .select("id, product_id")
     .eq("delivery_date", deliveryDate)
-    .not("late_for_order_id", "is", null)
+    .or("late_for_order_id.not.is.null,late_without_order.eq.true")
     .eq("late_acknowledged", false);
   if (!late?.length) return;
 

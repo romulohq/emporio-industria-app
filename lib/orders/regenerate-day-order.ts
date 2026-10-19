@@ -36,16 +36,20 @@ export async function regenerateSectorDayOrder(
     (max, o) => Math.max(max, o.current_version ?? 1),
     1
   );
-  const newVersion = currentMaxVersion + 1;
+  // the first order of a delivery (nothing generated before) is version 1, with no earlier version to keep
+  const hadOrders = (existingOrders ?? []).length > 0;
+  const newVersion = hadOrders ? currentMaxVersion + 1 : 1;
 
-  await admin.from("order_regenerations").insert({
-    sector_id: sectorId,
-    delivery_date: deliveryDateISO,
-    version_number: newVersion,
-    reason,
-    triggered_by: triggeredBy,
-    snapshot,
-  });
+  if (hadOrders) {
+    await admin.from("order_regenerations").insert({
+      sector_id: sectorId,
+      delivery_date: deliveryDateISO,
+      version_number: newVersion,
+      reason,
+      triggered_by: triggeredBy,
+      snapshot,
+    });
+  }
 
   const plan = await computeDayOrderPlan(deliveryDateISO, { excludeReportIds });
   const { productsUpdated } = await applyDayOrderPlan(deliveryDateISO, plan, { sectorId });

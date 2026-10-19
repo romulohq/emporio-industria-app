@@ -68,14 +68,14 @@ export async function getTodaySendMonitor(): Promise<SendMonitorEntry[]> {
     cohortStoreIds.length
       ? supabase
           .from("store_stock_reports")
-          .select("id, store_id, delivery_date, created_at, late_for_order_id, late_acknowledged")
+          .select("id, store_id, delivery_date, created_at, late_for_order_id, late_without_order, late_acknowledged")
           .in("store_id", cohortStoreIds)
           .in("delivery_date", deliveryDates)
       : Promise.resolve({ data: [] as ReportRow[] }),
     supabase
       .from("store_stock_reports")
-      .select("id, store_id, delivery_date, created_at, late_for_order_id, late_acknowledged")
-      .not("late_for_order_id", "is", null)
+      .select("id, store_id, delivery_date, created_at, late_for_order_id, late_without_order, late_acknowledged")
+      .or("late_for_order_id.not.is.null,late_without_order.eq.true")
       .eq("late_acknowledged", false)
       .gt("delivery_date", todayISO),
   ]);
@@ -91,7 +91,7 @@ export async function getTodaySendMonitor(): Promise<SendMonitorEntry[]> {
   }
 
   // what a decided late report's outcome was (approved vs refused)
-  const decidedIds = reportRows.filter((r) => r.late_for_order_id !== null && r.late_acknowledged).map((r) => r.id);
+  const decidedIds = reportRows.filter((r) => (r.late_for_order_id !== null || r.late_without_order === true) && r.late_acknowledged).map((r) => r.id);
   const lastDecisionByReport = new Map<string, string>();
   if (decidedIds.length) {
     const { data: decisions } = await createAdminClient()
