@@ -2,9 +2,12 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { UserRowMenu } from "@/components/admin/user-row-menu";
+import { requireAdmin } from "@/lib/auth/get-session";
 import type { Profile, Sector, UserSector } from "@/lib/types/database.types";
 
 export default async function UsuariosPage() {
+  const { userId } = await requireAdmin();
   const supabase = await createClient();
 
   const [{ data: profiles }, { data: links }, { data: sectors }] = await Promise.all([
@@ -58,12 +61,12 @@ export default async function UsuariosPage() {
                     : (sectorsByUser.get(profile.id) ?? []).map((s) => s.name).join(", ") || "—"}
                 </td>
                 <td className="px-4 py-2 text-right">
-                  <Link
-                    href={`/admin/usuarios/${profile.id}`}
-                    className="text-amber-700 hover:underline"
-                  >
-                    Editar
-                  </Link>
+                  <UserRowMenu
+                    userId={profile.id}
+                    name={profile.full_name ?? ""}
+                    email={profile.email ?? ""}
+                    isSelf={profile.id === userId}
+                  />
                 </td>
               </tr>
             ))}

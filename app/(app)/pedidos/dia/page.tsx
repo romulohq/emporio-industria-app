@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, Printer, RefreshCw } from "lucide-react";
+import { ChevronRight, Printer, RefreshCw, Truck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { classifyCycleReports } from "@/lib/orders/classify-send";
@@ -326,9 +326,10 @@ export default async function OrdensPorDiaPage() {
                 </Link>
                 <Link
                   href={`/pedidos/dia/imprimir-romaneio?date=${deliveryDate}`}
-                  className="text-sm font-medium text-orange-700 hover:text-orange-800"
+                  className="flex items-center gap-1 text-sm font-medium text-orange-700 hover:text-orange-800"
                 >
-                  Imprimir romaneio de entrega
+                  <Truck className="h-4 w-4" />
+                  Imprimir romaneio
                 </Link>
               </div>
             )}

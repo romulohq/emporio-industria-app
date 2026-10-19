@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/get-session";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { z } from "zod";
 import { createUserSchema, updateUserSectorsSchema } from "@/lib/validations/user";
 
 export type FormState = { error?: string } | undefined;
@@ -77,4 +78,37 @@ export async function updateUserSectors(formData: FormData) {
 
   revalidatePath("/admin/usuarios");
   revalidatePath(`/admin/usuarios/${user_id}`);
+}
+
+export type DeleteUserResult = { error?: string; ok?: boolean };
+
+/**
+ * Deletes a user account for good: the login is removed (so the same e-mail can be registered
+ * again later, with a new password), along with their sector links and personal reminders. What
+ * they registered stays in the system without their name (see migration 39).
+ */
+export async function deleteUser(userId: string): Promise<DeleteUserResult> {
+  const session = await requireAdmin();
+  if (!z.string().uuid().safeParse(userId).success) return { error: "Usuário inválido." };
+  if (userId === session.userId) return { error: "Você não pode excluir a sua própria conta." };
+
+  const admin = createAdminClient();
+  const { data: target } = await admin.from("profiles").select("id, is_admin").eq("id", userId).maybeSingle();
+  if (!target) return { error: "Usuário não encontrado." };
+
+  // there must always be someone able to manage users
+  if (target.is_admin) {
+    const { count } = await admin
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("is_admin", true)
+      .neq("id", userId);
+    if (!count) return { error: "Este é o único administrador. Crie outro antes de excluí-lo." };
+  }
+
+  const { error } = await admin.auth.admin.deleteUser(userId);
+  if (error) return { error: "Não foi possível excluir o usuário. Tente novamente." };
+
+  revalidatePath("/admin/usuarios");
+  return { ok: true };
 }
