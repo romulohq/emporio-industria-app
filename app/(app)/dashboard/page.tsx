@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/get-session";
 import { Card, CardContent, CardHeader, CardIcon, CardTitle } from "@/components/ui/card";
 import { DashboardGrid } from "@/components/dashboard/dashboard-grid";
+import { RemindersCard } from "@/components/dashboard/reminders-card";
 import { CoverageBar } from "@/components/stock/coverage-bar";
 import { getOsorioCatalog } from "@/lib/stock/osorio";
 import { coverageOf } from "@/lib/stock/coverage";
@@ -13,7 +14,7 @@ import { upcomingHolidays } from "@/lib/holidays";
 import { SCHEDULE_SECTIONS, labelTone, weekStartOf, type LabelTone } from "@/lib/schedule/week";
 import { addDaysISO, fortalezaDateISO, formatBrDate, weekdayOfISODate } from "@/lib/dates";
 import { WEEKDAY_ORDER, WEEKDAY_LABELS, formatQuantity } from "@/lib/format/labels";
-import type { ScheduleCell, ScheduleItem, ScheduleWeek } from "@/lib/types/database.types";
+import type { ScheduleCell, ScheduleItem, ScheduleWeek, UserReminder } from "@/lib/types/database.types";
 
 const MONTH_ABBR = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const LOW_LIST_SIZE = 8;
@@ -41,7 +42,14 @@ export default async function DashboardPage() {
   const weekStart = weekStartOf(todayISO);
   const isWorkday = weekdayNumber <= 5;
 
-  const [{ products }, { data: recentCounts }, { data: todayCells }, { data: scheduleItems }, { data: weekRow }] =
+  const [
+    { products },
+    { data: recentCounts },
+    { data: todayCells },
+    { data: scheduleItems },
+    { data: weekRow },
+    { data: reminderRows },
+  ] =
     await Promise.all([
       getOsorioCatalog(supabase),
       supabase
@@ -54,6 +62,8 @@ export default async function DashboardPage() {
         : Promise.resolve({ data: [] as ScheduleCell[] }),
       supabase.from("schedule_items").select("*").eq("active", true).order("position"),
       supabase.from("schedule_weeks").select("*").eq("week_start", weekStart).maybeSingle(),
+      // row-level security returns only this user's own reminders
+      supabase.from("user_reminders").select("*").order("created_at"),
     ]);
 
   // --- card: products about to run out (under 20% of the minimum) ---
@@ -305,6 +315,14 @@ export default async function DashboardPage() {
                   </ul>
                 </CardContent>
               </Card>
+            ),
+          },
+          {
+            id: "reminders",
+            node: (
+              <RemindersCard
+                initial={((reminderRows ?? []) as UserReminder[]).map((r) => ({ id: r.id, text: r.text, done: r.done }))}
+              />
             ),
           },
         ]}

@@ -227,6 +227,15 @@ export type RecipeItem = {
   unit: string;
 };
 
+export type UserReminder = {
+  id: string;
+  user_id: string;
+  text: string;
+  done: boolean;
+  created_at: string;
+  done_at: string | null;
+};
+
 export type ProductionOrder = {
   id: string;
   product_id: string;
@@ -314,6 +323,12 @@ export type Database = {
         Row: Subproduct;
         Insert: Partial<Subproduct>;
         Update: Partial<Subproduct>;
+        Relationships: Relationship[];
+      };
+      user_reminders: {
+        Row: UserReminder;
+        Insert: Partial<UserReminder>;
+        Update: Partial<UserReminder>;
         Relationships: Relationship[];
       };
       raw_materials: {
