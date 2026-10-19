@@ -144,6 +144,8 @@ export type Product = {
   responsible_id: string | null;
   is_low_stock: boolean;
   active: boolean;
+  converted_to: "subproduct" | "raw_material" | null;
+  converted_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

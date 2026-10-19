@@ -9,7 +9,7 @@ export default async function ProdutosPage() {
   const supabase = await createClient();
 
   const [{ data: products }, { data: sectors }] = await Promise.all([
-    supabase.from("products").select("*").order("name"),
+    supabase.from("products").select("*").is("converted_to", null).order("name"),
     supabase.from("sectors").select("*").order("name"),
   ]);
 
