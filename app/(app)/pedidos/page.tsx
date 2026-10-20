@@ -42,6 +42,10 @@ export default async function PedidosPage() {
     overdue: entries.filter((e) => e.status === "overdue").length,
   };
 
+  // the list below the counters is only for what needs attention: stores that did not send by the
+  // deadline, and late sends waiting for approval. Stores still within their deadline today are left out.
+  const delayed = entries.filter((e) => e.status === "overdue" || e.status === "late");
+
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold text-neutral-900">Pedidos</h1>
@@ -71,11 +75,13 @@ export default async function PedidosPage() {
         </div>
       </div>
 
-      {entries.length === 0 ? (
-        <p className="text-sm text-neutral-500">Nenhuma loja tem prazo de envio hoje.</p>
+      {delayed.length === 0 ? (
+        <p className="text-sm text-neutral-500">
+          {entries.length === 0 ? "Nenhuma loja tem prazo de envio hoje." : "Nenhuma loja com pedido atrasado."}
+        </p>
       ) : (
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-          {entries.map((entry) => {
+          {delayed.map((entry) => {
             const config = STATUS_CONFIG[entry.status];
             return (
               <div key={`${entry.storeId}:${entry.deliveryDate}`} className={`rounded-lg border px-3 py-2 ${config.card}`}>
