@@ -17,7 +17,7 @@ export function MonthSectorRows({ name, colSpan, rows }: { name: string; colSpan
             type="button"
             onClick={() => setCollapsed((v) => !v)}
             aria-expanded={!collapsed}
-            className="sticky left-0 flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-400 hover:text-neutral-600"
+            className="sticky left-0 flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-wide text-neutral-500 hover:text-neutral-700"
           >
             <ChevronRight className={`h-3.5 w-3.5 transition-transform ${collapsed ? "" : "rotate-90"}`} />
             {name}

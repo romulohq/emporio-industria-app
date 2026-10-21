@@ -493,9 +493,9 @@ function GroupRows({
             onClick={onToggle}
             tabIndex={-1}
             aria-expanded={!isCollapsed}
-            className="flex w-full items-center gap-1.5 px-4 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-400 hover:text-neutral-600"
+            className="flex w-full items-center gap-1.5 px-4 py-2.5 text-left text-sm font-bold uppercase tracking-wide text-neutral-500 hover:text-neutral-700"
           >
-            <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isCollapsed ? "" : "rotate-90"}`} />
+            <ChevronRight className={`h-4 w-4 transition-transform ${isCollapsed ? "" : "rotate-90"}`} />
             {group.sectorName}
             {isCollapsed && <span className="font-normal normal-case tracking-normal">· {group.rows.length} produtos</span>}
           </button>
