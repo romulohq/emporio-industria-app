@@ -7,7 +7,8 @@ import { FilterBar, FilterSelect, SearchField, normalize } from "@/components/ui
 export type FichaGroup = {
   sectorId: string;
   sectorName: string;
-  products: { id: string; name: string; ingredients: number }[];
+  /** where the sheet opens; products default to /produtos/fichas/<id> */
+  products: { id: string; name: string; ingredients: number; href?: string }[];
 };
 
 const STATUS = [
@@ -62,7 +63,7 @@ export function FichasBrowser({ groups }: { groups: FichaGroup[] }) {
             {group.products.map((product) => (
               <li key={product.id} className="border-t border-neutral-100">
                 <Link
-                  href={`/produtos/fichas/${product.id}`}
+                  href={product.href ?? `/produtos/fichas/${product.id}`}
                   className="flex items-center justify-between gap-3 px-4 py-2 text-sm hover:bg-neutral-50"
                 >
                   <span className="font-medium text-neutral-900">{product.name}</span>
