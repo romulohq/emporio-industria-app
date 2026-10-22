@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, Printer, RefreshCw, Truck } from "lucide-react";
+import { ChevronRight, Printer, Truck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchAll } from "@/lib/supabase/fetch-all";
@@ -9,7 +9,7 @@ import { PedidosTabs } from "@/components/orders/pedidos-tabs";
 import { ContributionMenu, type ContributionHistoryItem } from "@/components/orders/contribution-menu";
 import { LateStoreCard } from "@/components/orders/late-store-card";
 import { LateReportsPopup } from "@/components/orders/late-reports-popup";
-import { updateDayOrders } from "./actions";
+import { UpdateOrdersButton } from "@/components/orders/update-orders-button";
 import { getUndecidedLateReports } from "@/lib/orders/late-reports";
 import { groupLateReportsByStore } from "@/lib/orders/group-late-by-store";
 import {
@@ -272,23 +272,7 @@ export default async function OrdensPorDiaPage() {
             considerando o dia de entrega cadastrado de cada loja.
           </p>
         </div>
-        {profile.is_admin && (
-          <form action={updateDayOrders} className="shrink-0">
-            <button
-              type="submit"
-              title={lateCount === 0 ? "Atualizar as ordens com todos os envios das lojas" : "Incluir os pedidos atrasados e atualizar as ordens"}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-orange-700"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              Atualizar ordem de produção
-              {lateCount > 0 && (
-                <span className="rounded-full bg-white px-1.5 text-[10px] font-bold leading-4 text-orange-700">
-                  {lateCount}
-                </span>
-              )}
-            </button>
-          </form>
-        )}
+        {profile.is_admin && <UpdateOrdersButton lateCount={lateCount} />}
       </div>
 
       <PedidosTabs isAdmin={profile.is_admin} />

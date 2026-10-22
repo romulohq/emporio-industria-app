@@ -1,13 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/get-session";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateDayOrders } from "@/lib/orders/generate-day-orders";
 import { regenerateSectorDayOrder } from "@/lib/orders/regenerate-day-order";
 import { fortalezaDateISO } from "@/lib/dates";
+import { fetchAll } from "@/lib/supabase/fetch-all";
 import { getUndecidedLateReports, groupLateReports } from "@/lib/orders/late-reports";
 import { deliveryDatesProducedOn } from "@/lib/delivery-schedule";
 import {
@@ -29,10 +29,41 @@ function revalidateOrdersPaths() {
  * generating the ones that don't exist yet and completing the ones that were built from an
  * incomplete read of the reports.
  */
-export async function updateDayOrders() {
+export async function updateDayOrders(): Promise<{ ok?: boolean; error?: string; movedProducts?: number }> {
   const { userId } = await requireAdmin();
   const supabase = await createClient();
   const admin = createAdminClient();
+
+  // a product moved to another sector (e.g. from Confeitaria to Pães) must show up in the new
+  // sector's order: open orders and their store contributions follow the product's current sector
+  let movedProducts = 0;
+  try {
+    const openOrders = await fetchAll<{ id: string; product_id: string; sector_id: string }>((from, to) =>
+      admin
+        .from("production_orders")
+        .select("id, product_id, sector_id")
+        .eq("source", "auto_route")
+        .in("status", ["pending", "in_progress"])
+        .order("id")
+        .range(from, to)
+    );
+    const productIds = [...new Set(openOrders.map((o) => o.product_id))];
+    const { data: currentProducts } = productIds.length
+      ? await admin.from("products").select("id, sector_id").in("id", productIds)
+      : { data: [] as { id: string; sector_id: string }[] };
+    const sectorByProduct = new Map((currentProducts ?? []).map((p) => [p.id as string, p.sector_id as string]));
+    const moved = new Set<string>();
+    for (const order of openOrders) {
+      const sectorId = sectorByProduct.get(order.product_id);
+      if (!sectorId || sectorId === order.sector_id) continue;
+      await admin.from("production_orders").update({ sector_id: sectorId }).eq("id", order.id);
+      await admin.from("production_order_contributions").update({ sector_id: sectorId }).eq("order_id", order.id);
+      moved.add(order.product_id);
+    }
+    movedProducts = moved.size;
+  } catch {
+    return { error: "Não foi possível atualizar. Tente novamente." };
+  }
 
   for (const group of groupLateReports(await getUndecidedLateReports())) {
     const reportIds = group.items.map((item) => item.reportId);
@@ -66,7 +97,7 @@ export async function updateDayOrders() {
   }
 
   revalidateOrdersPaths();
-  redirect("/pedidos/dia");
+  return { ok: true, movedProducts };
 }
 
 /** Pins a store's contribution to a specific past report instead of its latest one. */
