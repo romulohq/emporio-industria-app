@@ -34,6 +34,7 @@ export const rawMaterialSchema = z.object({
     .transform((v) => (v === "" ? null : v))
     .nullable()
     .default(null),
+  category: z.enum(["geral", "hortifruti"]).default("geral"),
 });
 
 export const updateRawMaterialSchema = rawMaterialSchema.extend({ id: z.string().uuid() });

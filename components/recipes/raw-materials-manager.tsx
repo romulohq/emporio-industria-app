@@ -6,7 +6,19 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import { createRawMaterial, deleteRawMaterial, updateRawMaterial } from "@/app/(app)/produtos/materias-primas/actions";
 import { FilterBar, FilterSelect, SearchField, normalize } from "@/components/ui/filter-bar";
 
-export type RawMaterialRow = { id: string; name: string; unit: string; code: string | null; uses: number };
+export type RawMaterialRow = {
+  id: string;
+  name: string;
+  unit: string;
+  code: string | null;
+  category: "geral" | "hortifruti";
+  uses: number;
+};
+
+const CATEGORIES = [
+  { value: "geral", label: "Geral" },
+  { value: "hortifruti", label: "Hortifrut" },
+] as const;
 
 const UNITS = ["kg", "g", "L", "mL", "und", "pct", "cx"];
 const USE = [
@@ -29,19 +41,27 @@ export function RawMaterialsManager({ items, canEdit }: { items: RawMaterialRow[
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("kg");
   const [code, setCode] = useState("");
+  const [category, setCategory] = useState<"geral" | "hortifruti">("geral");
+  const [categoryFilter, setCategoryFilter] = useState("");
 
   // row being edited
   const [editId, setEditId] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ name: "", unit: "", code: "" });
+  const [draft, setDraft] = useState<{ name: string; unit: string; code: string; category: "geral" | "hortifruti" }>({
+    name: "",
+    unit: "",
+    code: "",
+    category: "geral",
+  });
 
   const visible = useMemo(() => {
     const q = normalize(query);
     return items.filter((m) => {
       if (use === "used" && m.uses === 0) return false;
       if (use === "unused" && m.uses > 0) return false;
+      if (categoryFilter && m.category !== categoryFilter) return false;
       return !q || normalize(`${m.name} ${m.code ?? ""}`).includes(q);
     });
-  }, [items, query, use]);
+  }, [items, query, use, categoryFilter]);
 
   function run(action: () => Promise<{ error?: string }>, onDone?: () => void) {
     setError(null);
@@ -59,7 +79,7 @@ export function RawMaterialsManager({ items, canEdit }: { items: RawMaterialRow[
   function create(e: React.FormEvent) {
     e.preventDefault();
     run(
-      () => createRawMaterial({ name, unit, code }),
+      () => createRawMaterial({ name, unit, code, category }),
       () => {
         setName("");
         setCode("");
@@ -70,7 +90,7 @@ export function RawMaterialsManager({ items, canEdit }: { items: RawMaterialRow[
   function startEdit(m: RawMaterialRow) {
     setError(null);
     setEditId(m.id);
-    setDraft({ name: m.name, unit: m.unit, code: m.code ?? "" });
+    setDraft({ name: m.name, unit: m.unit, code: m.code ?? "", category: m.category });
   }
 
   function remove(m: RawMaterialRow) {
@@ -105,6 +125,18 @@ export function RawMaterialsManager({ items, canEdit }: { items: RawMaterialRow[
               aria-label="Código"
               className={`${field} w-40`}
             />
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value as "geral" | "hortifruti")}
+              aria-label="Categoria"
+              className={`${field} w-36`}
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
             <button
               type="submit"
               disabled={pending || name.trim().length < 2 || unit.trim() === ""}
@@ -131,6 +163,12 @@ export function RawMaterialsManager({ items, canEdit }: { items: RawMaterialRow[
           <FilterBar>
             <SearchField value={query} onChange={setQuery} placeholder="Buscar matéria-prima" />
             <FilterSelect value={use} onChange={setUse} label="Uso" options={USE} />
+            <FilterSelect
+              value={categoryFilter}
+              onChange={setCategoryFilter}
+              label="Categoria"
+              options={CATEGORIES.map((c) => ({ value: c.value, label: c.label }))}
+            />
             <span className="ml-auto text-xs text-neutral-500">
               {visible.length} {visible.length === 1 ? "matéria-prima" : "matérias-primas"}
             </span>
@@ -146,6 +184,7 @@ export function RawMaterialsManager({ items, canEdit }: { items: RawMaterialRow[
                     <th className="px-4 py-2">Matéria-prima</th>
                     <th className="px-4 py-2">Unidade</th>
                     <th className="px-4 py-2">Código</th>
+                    <th className="px-4 py-2">Categoria</th>
                     <th className="px-4 py-2">Uso</th>
                     <th className="px-4 py-2" />
                   </tr>
@@ -179,6 +218,20 @@ export function RawMaterialsManager({ items, canEdit }: { items: RawMaterialRow[
                             className={`${field} w-32`}
                           />
                         </td>
+                        <td className="px-4 py-2">
+                          <select
+                            value={draft.category}
+                            onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value as "geral" | "hortifruti" }))}
+                            aria-label="Categoria"
+                            className={`${field} w-32`}
+                          >
+                            {CATEGORIES.map((c) => (
+                              <option key={c.value} value={c.value}>
+                                {c.label}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
                         <td className="px-4 py-2 text-neutral-500">{m.uses}</td>
                         <td className="px-4 py-2 text-right">
                           <button
@@ -208,6 +261,13 @@ export function RawMaterialsManager({ items, canEdit }: { items: RawMaterialRow[
                         <td className="px-4 py-2 font-medium text-neutral-900">{m.name}</td>
                         <td className="px-4 py-2 text-neutral-600">{m.unit}</td>
                         <td className="px-4 py-2 text-neutral-500">{m.code ?? "—"}</td>
+                        <td className="px-4 py-2">
+                          {m.category === "hortifruti" ? (
+                            <span className="rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700">Hortifrut</span>
+                          ) : (
+                            <span className="text-xs text-neutral-400">Geral</span>
+                          )}
+                        </td>
                         <td className="px-4 py-2">
                           {m.uses > 0 ? (
                             <span className="rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700">

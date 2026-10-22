@@ -36,6 +36,7 @@ export default async function MateriasPrimasPage() {
           name: m.name,
           unit: m.unit,
           code: m.code,
+          category: m.category,
           uses: recipesByMaterial.get(m.id)?.size ?? 0,
         }))}
         canEdit={profile.is_admin || sectors.length > 0}

@@ -6,6 +6,7 @@ import {
   Boxes,
   ClipboardList,
   History,
+  ShoppingCart,
   Users,
   Building2,
   Store,
@@ -15,11 +16,20 @@ import {
 import { signOut } from "@/app/(auth)/login/actions";
 import type { Profile, Sector } from "@/lib/types/database.types";
 
-const NAV_ITEMS = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  /** submenu shown under the item */
+  children?: { href: string; label: string }[];
+};
+
+const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Painel", icon: LayoutDashboard },
   { href: "/produtos", label: "Produtos", icon: Package },
   { href: "/estoque", label: "Estoque", icon: Boxes },
   { href: "/pedidos", label: "Pedidos", icon: ClipboardList },
+  { href: "/compras/hortifrut", label: "Compras", icon: ShoppingCart, children: [{ href: "/compras/hortifrut", label: "Hortifrut" }] },
   { href: "/historico", label: "Histórico", icon: History },
 ];
 
@@ -54,19 +64,33 @@ export function Sidebar({
 
       <nav className="flex-1 space-y-1 px-3">
         {NAV_ITEMS.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-neutral-600 transition-colors hover:bg-orange-50 hover:text-orange-700"
-          >
-            <item.icon className="h-[18px] w-[18px]" strokeWidth={2} />
-            {item.label}
-            {item.href === "/pedidos" && lateReportsCount > 0 && (
-              <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-600 px-1 text-xs font-bold text-white">
-                {lateReportsCount}
-              </span>
+          <div key={item.href + item.label}>
+            <Link
+              href={item.href}
+              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-neutral-600 transition-colors hover:bg-orange-50 hover:text-orange-700"
+            >
+              <item.icon className="h-[18px] w-[18px]" strokeWidth={2} />
+              {item.label}
+              {item.href === "/pedidos" && lateReportsCount > 0 && (
+                <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-600 px-1 text-xs font-bold text-white">
+                  {lateReportsCount}
+                </span>
+              )}
+            </Link>
+            {item.children && (
+              <div className="ml-[22px] mt-0.5 space-y-0.5 border-l border-neutral-200 pl-3">
+                {item.children.map((child) => (
+                  <Link
+                    key={child.href}
+                    href={child.href}
+                    className="block rounded-lg px-3 py-1.5 text-sm text-neutral-500 transition-colors hover:bg-orange-50 hover:text-orange-700"
+                  >
+                    {child.label}
+                  </Link>
+                ))}
+              </div>
             )}
-          </Link>
+          </div>
         ))}
 
         {profile.is_admin && (

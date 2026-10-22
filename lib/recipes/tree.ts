@@ -16,6 +16,8 @@ export type SubproductRecipe = {
 
 export type TreeNode = {
   label: string;
+  /** set on a leaf that is a registered raw material */
+  rawMaterialId?: string | null;
   quantity: number;
   unit: string;
   subproductId: string | null;
@@ -44,6 +46,7 @@ export function buildTree(
     if (!line.subproductId) {
       return {
         label: line.name ?? "",
+        rawMaterialId: line.rawMaterialId ?? null,
         quantity: line.quantity,
         unit: line.unit,
         subproductId: null,

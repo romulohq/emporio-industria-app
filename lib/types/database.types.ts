@@ -170,6 +170,8 @@ export type ScheduleItem = {
   name: string;
   position: number;
   active: boolean;
+  recipe_product_id: string | null;
+  recipe_subproduct_id: string | null;
   created_at: string;
 };
 
@@ -209,11 +211,20 @@ export type Recipe = {
   updated_at: string;
 };
 
+export type HortifrutiCount = {
+  count_date: string;
+  raw_material_id: string;
+  quantity: number;
+  counted_by: string | null;
+  updated_at: string;
+};
+
 export type RawMaterial = {
   id: string;
   name: string;
   unit: string;
   code: string | null;
+  category: "geral" | "hortifruti";
   active: boolean;
   created_by: string | null;
   created_at: string;
@@ -332,6 +343,18 @@ export type Database = {
         Row: UserReminder;
         Insert: Partial<UserReminder>;
         Update: Partial<UserReminder>;
+        Relationships: Relationship[];
+      };
+      hortifruti_counts: {
+        Row: HortifrutiCount;
+        Insert: Partial<HortifrutiCount>;
+        Update: Partial<HortifrutiCount>;
+        Relationships: Relationship[];
+      };
+      app_settings: {
+        Row: { key: string; value: string; updated_at: string };
+        Insert: { key: string; value: string; updated_at?: string };
+        Update: { key?: string; value?: string; updated_at?: string };
         Relationships: Relationship[];
       };
       raw_materials: {
