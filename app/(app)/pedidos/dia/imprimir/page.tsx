@@ -2,6 +2,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/get-session";
 import { PrintButton } from "@/components/orders/print-button";
+import { fetchAll } from "@/lib/supabase/fetch-all";
+import { sectorPrintCss, sectorPrintLayout } from "@/lib/orders/print-fit";
 import { weekdayOfISODate, formatBrDate } from "@/lib/dates";
 import { WEEKDAY_LABELS, formatDateTime, formatQuantity } from "@/lib/format/labels";
 import type {
@@ -35,12 +37,20 @@ export default async function ImprimirOrdemDoDiaPage({
   const ordersList = (orders ?? []) as ProductionOrder[];
   const orderIds = ordersList.map((o) => o.id);
 
-  const [{ data: sectors }, { data: products }, { data: contributions }] = await Promise.all([
+  const [{ data: sectors }, { data: products }, contributions] = await Promise.all([
     supabase.from("sectors").select("*"),
     supabase.from("products").select("*"),
     orderIds.length
-      ? supabase.from("production_order_contributions").select("*").in("order_id", orderIds)
-      : Promise.resolve({ data: [] as ProductionOrderContribution[] }),
+      ? fetchAll<ProductionOrderContribution>((from, to) =>
+          supabase
+            .from("production_order_contributions")
+            .select("*")
+            .in("order_id", orderIds)
+            .order("order_id")
+            .order("store_id")
+            .range(from, to)
+        )
+      : Promise.resolve([] as ProductionOrderContribution[]),
   ]);
 
   const storeIds = [...new Set((contributions ?? []).map((c) => c.store_id))];
@@ -69,8 +79,26 @@ export default async function ImprimirOrdemDoDiaPage({
 
   const generatedAt = ordersList.find((o) => o.generated_at)?.generated_at ?? null;
 
+  // printing: A4 landscape, one sector per page, each sector squeezed to fit its page
+  const sectorEntries = [...bySector.entries()].map(([sectorId, sectorOrders], index) => {
+    const sortedOrders = [...sectorOrders].sort((a, b) =>
+      (productsById[a.product_id]?.name ?? "").localeCompare(productsById[b.product_id]?.name ?? "")
+    );
+    const sectorStoreIds = [
+      ...new Set(sortedOrders.flatMap((o) => (contributionsByOrder.get(o.id) ?? []).map((c) => c.store_id))),
+    ].sort((a, b) => (storesById[a]?.name ?? "").localeCompare(storesById[b]?.name ?? ""));
+    const longestStore = Math.max(0, ...sectorStoreIds.map((id) => storesById[id]?.name.length ?? 0));
+    const scope = `sector-print-${index}`;
+    const layout = sectorPrintLayout(sortedOrders.length, sectorStoreIds.length, longestStore);
+    return { sectorId, sortedOrders, sectorStoreIds, scope, layout, index };
+  });
+  const printCss = `@media print { @page { size: A4 landscape; margin: 8mm; } * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }${sectorEntries
+    .map((entry) => sectorPrintCss(entry.scope, entry.layout))
+    .join("")}`;
+
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6 print:p-0">
+    <div className="mx-auto max-w-5xl space-y-6 p-6 print:max-w-none print:space-y-3 print:p-0">
+      <style>{printCss}</style>
       <div className="flex items-center justify-between print:hidden">
         <Link href="/pedidos/dia" className="text-sm font-medium text-orange-700 hover:text-orange-800">
           ← Voltar
@@ -97,17 +125,20 @@ export default async function ImprimirOrdemDoDiaPage({
         <p className="text-sm text-neutral-500">Nenhum pedido para esta data.</p>
       )}
 
-      {[...bySector.entries()].map(([sectorId, sectorOrders]) => {
-        const sortedOrders = [...sectorOrders].sort((a, b) =>
-          (productsById[a.product_id]?.name ?? "").localeCompare(productsById[b.product_id]?.name ?? "")
-        );
-        const sectorStoreIds = [
-          ...new Set(sortedOrders.flatMap((o) => (contributionsByOrder.get(o.id) ?? []).map((c) => c.store_id))),
-        ].sort((a, b) => (storesById[a]?.name ?? "").localeCompare(storesById[b]?.name ?? ""));
-
+      {sectorEntries.map(({ sectorId, sortedOrders, sectorStoreIds, scope, index }) => {
         return (
-          <section key={sectorId} className="space-y-2 break-inside-avoid">
-            <h2 className="text-lg font-bold text-orange-700">{sectorsById[sectorId]?.name ?? "—"}</h2>
+          <section
+            key={sectorId}
+            className={`${scope} space-y-2 ${index > 0 ? "print:[break-before:page]" : ""}`}
+          >
+            <h2 className="flex items-baseline gap-3 text-lg font-bold text-orange-700 print:text-base">
+              {sectorsById[sectorId]?.name ?? "—"}
+              {index > 0 && (
+                <span className="hidden text-xs font-medium text-neutral-500 print:inline">
+                  Ordem de produção — {WEEKDAY_LABELS[weekdayOfISODate(date)]}, {formatBrDate(date)}
+                </span>
+              )}
+            </h2>
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="bg-orange-50">
@@ -119,7 +150,7 @@ export default async function ImprimirOrdemDoDiaPage({
                       key={storeId}
                       className="border border-orange-100 px-2 py-1.5 text-center font-semibold text-neutral-900"
                     >
-                      {storesById[storeId]?.name}
+                      <span className="store-name">{storesById[storeId]?.name}</span>
                     </th>
                   ))}
                   <th className="border border-orange-100 bg-orange-100 px-2 py-1.5 text-center font-bold text-neutral-900">
