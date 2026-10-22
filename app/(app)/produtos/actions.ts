@@ -194,10 +194,40 @@ export async function updateProduct(_prevState: FormState, formData: FormData): 
   }
 
   const supabase = await createClient();
+
+  // A product's responsible must belong to the product's sector. Moving the product to another
+  // sector keeps the same person when the new sector has them (same name), otherwise clears it.
+  const { data: current } = await supabase
+    .from("products")
+    .select("sector_id, responsible_id")
+    .eq("id", id)
+    .maybeSingle();
+  const sectorChanged = !!current && current.sector_id !== parsed.data.sector_id;
+  let responsibleId: string | null = current?.responsible_id ?? null;
+  if (sectorChanged && responsibleId) {
+    const { data: previous } = await supabase
+      .from("sector_responsibles")
+      .select("person_name")
+      .eq("id", responsibleId)
+      .maybeSingle();
+    const { data: sameName } = previous
+      ? await supabase
+          .from("sector_responsibles")
+          .select("id")
+          .eq("sector_id", parsed.data.sector_id)
+          .eq("person_name", previous.person_name)
+          .eq("active", true)
+          .limit(1)
+          .maybeSingle()
+      : { data: null };
+    responsibleId = sameName?.id ?? null;
+  }
+
   const { error } = await supabase
     .from("products")
     .update({
       sector_id: parsed.data.sector_id,
+      responsible_id: responsibleId,
       name: parsed.data.name,
       sku: parsed.data.sku ?? null,
       unit: parsed.data.unit,
@@ -209,6 +239,23 @@ export async function updateProduct(_prevState: FormState, formData: FormData): 
 
   if (error) {
     return { error: "Não foi possível salvar as alterações." };
+  }
+
+  // open orders (and their store lines) follow the product to its new sector right away
+  if (sectorChanged) {
+    const admin = createAdminClient();
+    const { data: openOrders } = await admin
+      .from("production_orders")
+      .select("id")
+      .eq("product_id", id)
+      .eq("source", "auto_route")
+      .in("status", ["pending", "in_progress"]);
+    const orderIds = (openOrders ?? []).map((o) => o.id as string);
+    if (orderIds.length) {
+      await admin.from("production_orders").update({ sector_id: parsed.data.sector_id }).in("id", orderIds);
+      await admin.from("production_order_contributions").update({ sector_id: parsed.data.sector_id }).in("order_id", orderIds);
+      revalidatePath("/pedidos/dia");
+    }
   }
 
   revalidatePath("/produtos");

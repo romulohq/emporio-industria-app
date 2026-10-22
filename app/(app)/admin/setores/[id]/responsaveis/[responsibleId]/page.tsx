@@ -23,9 +23,18 @@ export default async function ResponsibleProductsPage({
   ]);
   if (!sector || !responsible) notFound();
 
+  // products of every sector of the same production unit: ticking one from another sector moves it here
+  const unitId = (sector as Sector).unit_id;
+  const { data: unitSectors } = unitId
+    ? await supabase.from("sectors").select("*").eq("unit_id", unitId)
+    : { data: [sector] as Sector[] };
+  const sectorList = (unitSectors ?? []) as Sector[];
+  const sectorNameById = Object.fromEntries(sectorList.map((s) => [s.id, s.name]));
+  const sectorIds = sectorList.map((s) => s.id);
+
   const [{ data: products }, { data: responsibles }] = await Promise.all([
-    supabase.from("products").select("*").eq("sector_id", sectorId).eq("active", true).order("name"),
-    supabase.from("sector_responsibles").select("*").eq("sector_id", sectorId),
+    supabase.from("products").select("*").in("sector_id", sectorIds).eq("active", true).is("converted_to", null).order("name"),
+    supabase.from("sector_responsibles").select("*").in("sector_id", sectorIds),
   ]);
 
   const responsiblesById = Object.fromEntries(
@@ -37,6 +46,8 @@ export default async function ResponsibleProductsPage({
     name: p.name,
     ownerId: p.responsible_id,
     ownerName: p.responsible_id ? (responsiblesById[p.responsible_id]?.person_name ?? "outra pessoa") : null,
+    sectorId: p.sector_id,
+    sectorName: sectorNameById[p.sector_id] ?? "—",
   }));
 
   return (
@@ -52,7 +63,8 @@ export default async function ResponsibleProductsPage({
           {(responsible as SectorResponsible).role_name} — {(responsible as SectorResponsible).person_name}
         </h1>
         <p className="text-sm text-neutral-500">
-          Marque os produtos que são desta pessoa. Produtos de outra pessoa mostram o nome dela ao lado.
+          Marque os produtos que são desta pessoa. Produtos de outra pessoa mostram o nome dela ao lado. Os de
+          outros setores ficam numa lista à parte: marcar um deles o <b>move para este setor</b>.
         </p>
       </div>
 

@@ -11,6 +11,8 @@ export type ChecklistProduct = {
   name: string;
   ownerId: string | null;
   ownerName: string | null;
+  sectorId: string;
+  sectorName: string;
 };
 
 export function ResponsibleProductsChecklist({
@@ -34,6 +36,8 @@ export function ResponsibleProductsChecklist({
     if (!q) return products;
     return products.filter((p) => p.name.toLowerCase().includes(q));
   }, [search, products]);
+  const ownSector = filtered.filter((p) => p.sectorId === sectorId);
+  const otherSectors = filtered.filter((p) => p.sectorId !== sectorId);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -47,6 +51,15 @@ export function ResponsibleProductsChecklist({
       const names = transfers.map((p) => `${p.name} (com ${p.ownerName})`).join(", ");
       const confirmed = window.confirm(
         `Transferir para ${responsibleName}: ${names}? Esses produtos vão sair de quem é hoje.`
+      );
+      if (!confirmed) return;
+    }
+
+    const moves = products.filter((p) => checkedIds.has(p.id) && p.sectorId !== sectorId);
+    if (moves.length > 0) {
+      const names = moves.map((p) => `${p.name} (hoje em ${p.sectorName})`).join(", ");
+      const confirmed = window.confirm(
+        `Mover para este setor: ${names}?\n\nEles saem da ordem do setor atual e as ordens abertas deles passam para este setor.`
       );
       if (!confirmed) return;
     }
@@ -70,37 +83,61 @@ export function ResponsibleProductsChecklist({
       />
 
       <div className="divide-y divide-neutral-100 rounded-lg border border-neutral-200 bg-white">
-        {filtered.length === 0 && (
+        {ownSector.length === 0 && (
           <p className="px-3 py-4 text-sm text-neutral-500">Nenhum produto encontrado.</p>
         )}
-        {filtered.map((product) => {
-          const ownedByOther = product.ownerId && product.ownerId !== responsibleId;
-          return (
-            <label
-              key={product.id}
-              className="flex cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-neutral-50"
-            >
-              <span className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  name="product_ids"
-                  value={product.id}
-                  defaultChecked={product.ownerId === responsibleId}
-                  className="h-4 w-4 rounded border-neutral-300 text-orange-600 focus:ring-orange-600"
-                />
-                <span className="text-neutral-800">{product.name}</span>
-              </span>
-              {ownedByOther && (
-                <span className="text-xs text-neutral-400">com {product.ownerName}</span>
-              )}
-            </label>
-          );
-        })}
+        {ownSector.map((product) => (
+          <ProductRow key={product.id} product={product} responsibleId={responsibleId} />
+        ))}
       </div>
+
+      {otherSectors.length > 0 && (
+        <div className="space-y-1.5">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            Produtos de outros setores
+          </h2>
+          <p className="text-xs text-neutral-500">Marcar um produto daqui o move para este setor, com esta pessoa.</p>
+          <div className="divide-y divide-neutral-100 rounded-lg border border-neutral-200 bg-white">
+            {otherSectors.map((product) => (
+              <ProductRow key={product.id} product={product} responsibleId={responsibleId} showSector />
+            ))}
+          </div>
+        </div>
+      )}
 
       <Button type="submit" disabled={saving}>
         {saving ? "Salvando..." : "Salvar produtos"}
       </Button>
     </form>
+  );
+}
+
+function ProductRow({
+  product,
+  responsibleId,
+  showSector = false,
+}: {
+  product: ChecklistProduct;
+  responsibleId: string;
+  showSector?: boolean;
+}) {
+  const ownedByOther = product.ownerId && product.ownerId !== responsibleId;
+  return (
+    <label className="flex cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-neutral-50">
+      <span className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          name="product_ids"
+          value={product.id}
+          defaultChecked={product.ownerId === responsibleId}
+          className="h-4 w-4 rounded border-neutral-300 text-orange-600 focus:ring-orange-600"
+        />
+        <span className="text-neutral-800">{product.name}</span>
+      </span>
+      <span className="flex items-center gap-2 text-xs text-neutral-400">
+        {showSector && <span className="rounded bg-neutral-100 px-1.5 py-0.5 font-medium text-neutral-500">{product.sectorName}</span>}
+        {ownedByOther && <span>com {product.ownerName}</span>}
+      </span>
+    </label>
   );
 }

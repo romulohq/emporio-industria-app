@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/get-session";
 import {
   createResponsibleSchema,
@@ -152,6 +153,27 @@ export async function assignProductResponsible(formData: FormData) {
   revalidateSetores(product?.sector_id);
 }
 
+/** Open orders (and their store lines) follow products to the sector they were moved to. */
+async function moveOpenOrdersToSector(productIds: string[], sectorId: string) {
+  if (productIds.length === 0) return;
+  const admin = createAdminClient();
+  const { data: openOrders } = await admin
+    .from("production_orders")
+    .select("id")
+    .in("product_id", productIds)
+    .eq("source", "auto_route")
+    .in("status", ["pending", "in_progress"]);
+  const orderIds = (openOrders ?? []).map((o) => o.id as string);
+  if (orderIds.length === 0) return;
+  await admin.from("production_orders").update({ sector_id: sectorId }).in("id", orderIds);
+  await admin.from("production_order_contributions").update({ sector_id: sectorId }).in("order_id", orderIds);
+}
+
+/**
+ * Saves which products belong to a responsible. Products of the same production unit that are
+ * ticked from ANOTHER sector are moved into this responsible's sector (a product's responsible
+ * must belong to its sector): the product leaves the old sector's order and its open orders follow.
+ */
 export async function saveResponsibleProducts(formData: FormData) {
   await requireAdmin();
 
@@ -173,11 +195,28 @@ export async function saveResponsibleProducts(formData: FormData) {
     .not("id", "in", `(${product_ids.length ? product_ids.join(",") : "00000000-0000-0000-0000-000000000000"})`);
 
   if (product_ids.length) {
+    // only products of this sector's production unit may be moved in from other sectors
+    const { data: targetSector } = await supabase.from("sectors").select("unit_id").eq("id", sector_id).maybeSingle();
+    const { data: chosen } = await supabase.from("products").select("id, sector_id").in("id", product_ids);
+    const sectorIds = [...new Set((chosen ?? []).map((p) => p.sector_id as string))];
+    const { data: sectorRows } = await supabase.from("sectors").select("id, unit_id").in("id", sectorIds);
+    const unitBySector = new Map((sectorRows ?? []).map((s) => [s.id as string, s.unit_id as string | null]));
+    const allowed = (chosen ?? []).filter(
+      (p) => p.sector_id === sector_id || (!!targetSector?.unit_id && unitBySector.get(p.sector_id as string) === targetSector.unit_id)
+    );
+    const moved = allowed.filter((p) => p.sector_id !== sector_id).map((p) => p.id as string);
+
+    // sector and responsible change together, so the product always ends up consistent
     await supabase
       .from("products")
-      .update({ responsible_id })
-      .eq("sector_id", sector_id)
-      .in("id", product_ids);
+      .update({ sector_id, responsible_id })
+      .in("id", allowed.map((p) => p.id as string));
+    await moveOpenOrdersToSector(moved, sector_id);
+    if (moved.length > 0) {
+      revalidatePath("/pedidos/dia");
+      revalidatePath("/produtos");
+      revalidatePath("/estoque");
+    }
   }
 
   revalidateSetores(sector_id);
