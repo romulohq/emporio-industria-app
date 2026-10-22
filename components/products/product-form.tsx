@@ -21,10 +21,13 @@ const KIND_OPTIONS: { value: Kind; label: string }[] = [
 
 export function ProductForm({
   sectors,
+  unitNames = {},
   product,
   action,
 }: {
   sectors: Sector[];
+  /** production unit names by id, used in the warning when the sector moves to another unit */
+  unitNames?: Record<string, string>;
   product?: Product;
   action: (state: FormState, formData: FormData) => Promise<FormState>;
 }) {
@@ -32,12 +35,28 @@ export function ProductForm({
   const [kind, setKind] = useState<Kind>("product");
   const [name, setName] = useState(product?.name ?? "");
   const isProduct = kind === "product";
+  const [sectorId, setSectorId] = useState(product?.sector_id ?? "");
+  // moving an existing product to a sector of ANOTHER unit takes it out of the other unit's lists
+  // (e.g. leaving Fábrica Osório removes it from the frozen stock count)
+  const unitOf = (id: string) => sectors.find((s) => s.id === id)?.unit_id ?? null;
+  const originalUnit = product ? unitOf(product.sector_id) : null;
+  const newUnit = sectorId ? unitOf(sectorId) : null;
+  const changesUnit = isProduct && !!product && !!sectorId && originalUnit !== newUnit;
+  const unitMessage = changesUnit
+    ? `Este setor é da unidade "${newUnit ? (unitNames[newUnit] ?? "outra unidade") : "outra unidade"}", e o produto hoje é de "${originalUnit ? (unitNames[originalUnit] ?? "outra unidade") : "outra unidade"}". Ao salvar, ele sai das listas da unidade atual (por exemplo, da contagem de congelados da Fábrica Osório).`
+    : null;
   const prefix = kind === "subproduct" ? "SP" : "MP";
   const alreadyPrefixed = new RegExp(`^${prefix}\\s`, "i").test(name.trim());
   const resultName = alreadyPrefixed ? name.trim() : `${prefix} ${name.trim()}`;
 
   return (
-    <form action={formAction} className="max-w-lg space-y-4">
+    <form
+      action={formAction}
+      onSubmit={(e) => {
+        if (unitMessage && !window.confirm(`${unitMessage}\n\nConfirmar a mudança de setor?`)) e.preventDefault();
+      }}
+      className="max-w-lg space-y-4"
+    >
       {product && <input type="hidden" name="id" value={product.id} />}
 
       <div>
@@ -72,7 +91,13 @@ export function ProductForm({
       {isProduct && (
         <div>
           <Label htmlFor="sector_id">Setor</Label>
-          <Select id="sector_id" name="sector_id" defaultValue={product?.sector_id} required>
+          <Select
+            id="sector_id"
+            name="sector_id"
+            value={sectorId}
+            onChange={(e) => setSectorId(e.target.value)}
+            required
+          >
             <option value="" disabled>
               Selecione um setor
             </option>
@@ -82,6 +107,9 @@ export function ProductForm({
               </option>
             ))}
           </Select>
+          {unitMessage && (
+            <p className="mt-1.5 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">{unitMessage}</p>
+          )}
         </div>
       )}
 
