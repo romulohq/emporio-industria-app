@@ -276,9 +276,8 @@ export default async function OrdensPorDiaPage() {
           <form action={updateDayOrders} className="shrink-0">
             <button
               type="submit"
-              disabled={lateCount === 0}
-              title={lateCount === 0 ? "Nenhum pedido atrasado — ordem atualizada" : "Incluir os pedidos atrasados na ordem"}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-orange-600"
+              title={lateCount === 0 ? "Atualizar as ordens com todos os envios das lojas" : "Incluir os pedidos atrasados e atualizar as ordens"}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-orange-700"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               Atualizar ordem de produção
