@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { weekdayOfISODate } from "@/lib/dates";
+import { fetchAll } from "@/lib/supabase/fetch-all";
 import type { Product, StoreProductMin, StoreStockReport } from "@/lib/types/database.types";
 
 export type PlannedContribution = { quantity: number; reportId: string };
@@ -35,21 +36,33 @@ export async function computeDayOrderPlan(
   const storeIds = [...new Set((dayStores ?? []).map((d) => d.store_id as string))];
   if (storeIds.length === 0) return { byProduct: new Map(), productsById: new Map() };
 
-  const { data: mins } = await admin.from("store_product_mins").select("*").in("store_id", storeIds);
-  const minRows = (mins ?? []) as StoreProductMin[];
+  // a store has ~70 minimums and a day has 18+ stores: far past the 1000-row cap of a single request
+  const minRows = await fetchAll<StoreProductMin>((from, to) =>
+    admin
+      .from("store_product_mins")
+      .select("*")
+      .in("store_id", storeIds)
+      .order("store_id")
+      .order("product_id")
+      .range(from, to)
+  );
   if (minRows.length === 0) return { byProduct: new Map(), productsById: new Map() };
 
   const productIds = [...new Set(minRows.map((m) => m.product_id))];
 
-  const [{ data: products }, { data: reports }] = await Promise.all([
+  const [{ data: products }, reports] = await Promise.all([
     admin.from("products").select("*").in("id", productIds),
-    admin
-      .from("store_stock_reports")
-      .select("*")
-      .eq("delivery_date", deliveryDateISO)
-      .in("store_id", storeIds)
-      .in("product_id", productIds)
-      .order("created_at", { ascending: false }),
+    fetchAll<StoreStockReport>((from, to) =>
+      admin
+        .from("store_stock_reports")
+        .select("*")
+        .eq("delivery_date", deliveryDateISO)
+        .in("store_id", storeIds)
+        .in("product_id", productIds)
+        .order("created_at", { ascending: false })
+        .order("id")
+        .range(from, to)
+    ),
   ]);
 
   const productsById = new Map(((products ?? []) as Product[]).map((p) => [p.id, p]));
@@ -78,13 +91,17 @@ export async function computeDayOrderPlan(
   const storesWithCycleReport = new Set([...latestReportByStoreProduct.values()].map((r) => r.store_id));
   const fallbackStoreIds = storeIds.filter((id) => !storesWithCycleReport.has(id));
   if (fallbackStoreIds.length > 0) {
-    const { data: older } = await admin
-      .from("store_stock_reports")
-      .select("*")
-      .in("store_id", fallbackStoreIds)
-      .in("product_id", productIds)
-      .or(`delivery_date.is.null,delivery_date.lt.${deliveryDateISO}`)
-      .order("created_at", { ascending: false });
+    const older = await fetchAll<StoreStockReport>((from, to) =>
+      admin
+        .from("store_stock_reports")
+        .select("*")
+        .in("store_id", fallbackStoreIds)
+        .in("product_id", productIds)
+        .or(`delivery_date.is.null,delivery_date.lt.${deliveryDateISO}`)
+        .order("created_at", { ascending: false })
+        .order("id")
+        .range(from, to)
+    );
 
     const submissionByStore = new Map<string, string>();
     for (const report of (older ?? []) as StoreStockReport[]) {

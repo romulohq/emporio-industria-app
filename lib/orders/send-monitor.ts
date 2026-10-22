@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { classifyCycleReports, type CycleReportLike } from "@/lib/orders/classify-send";
 import { sendDeadlineDateForDelivery, sendDeadlineForDelivery, SEND_DEADLINE_TIME } from "@/lib/delivery-schedule";
 import { fortalezaDateISO, weekdayOfISODate, zonedInstant, addDaysISO } from "@/lib/dates";
+import { fetchAll } from "@/lib/supabase/fetch-all";
 import type { DeliveryRoute, Store, StoreDeliveryDay, Weekday } from "@/lib/types/database.types";
 
 type ReportRow = CycleReportLike & { store_id: string; delivery_date: string | null };
@@ -64,14 +65,20 @@ export async function getTodaySendMonitor(): Promise<SendMonitorEntry[]> {
 
   // late orders still waiting for an admin's approval matter whatever their deadline was
   // (as long as the delivery hasn't happened): they need a decision, so they always show here
-  const [{ data: cohortReports }, { data: awaiting }] = await Promise.all([
+  // every row of every report (about 70 per send): read in pages, a single request stops at 1000 rows
+  const [cohortReports, { data: awaiting }] = await Promise.all([
     cohortStoreIds.length
-      ? supabase
-          .from("store_stock_reports")
-          .select("id, store_id, delivery_date, created_at, late_for_order_id, late_without_order, late_acknowledged")
-          .in("store_id", cohortStoreIds)
-          .in("delivery_date", deliveryDates)
-      : Promise.resolve({ data: [] as ReportRow[] }),
+      ? fetchAll<ReportRow>((from, to) =>
+          supabase
+            .from("store_stock_reports")
+            .select("id, store_id, delivery_date, created_at, late_for_order_id, late_without_order, late_acknowledged")
+            .in("store_id", cohortStoreIds)
+            .in("delivery_date", deliveryDates)
+            .order("created_at")
+            .order("id")
+            .range(from, to)
+        )
+      : Promise.resolve([] as ReportRow[]),
     supabase
       .from("store_stock_reports")
       .select("id, store_id, delivery_date, created_at, late_for_order_id, late_without_order, late_acknowledged")

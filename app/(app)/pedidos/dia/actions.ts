@@ -25,8 +25,9 @@ function revalidateOrdersPaths() {
  * "Atualizar ordem de produção": orders are generated automatically each
  * production day, so this is how late reports get accepted — every undecided
  * late report is included by regenerating its sector/day order (versioned,
- * with the decision recorded). Also generates any of today's orders that
- * somehow don't exist yet.
+ * with the decision recorded). Then brings today's orders up to date with every report received:
+ * generating the ones that don't exist yet and completing the ones that were built from an
+ * incomplete read of the reports.
  */
 export async function updateDayOrders() {
   const { userId } = await requireAdmin();
@@ -58,17 +59,10 @@ export async function updateDayOrders() {
     await admin.from("store_stock_reports").update({ late_acknowledged: true }).in("id", reportIds);
   }
 
-  const todayDeliveryDates = deliveryDatesProducedOn(fortalezaDateISO());
-  if (todayDeliveryDates.length) {
-    const { data: existing } = await admin
-      .from("production_orders")
-      .select("delivery_date")
-      .eq("source", "auto_route")
-      .in("delivery_date", todayDeliveryDates);
-    const existingDates = new Set((existing ?? []).map((o) => o.delivery_date as string));
-    for (const deliveryDate of todayDeliveryDates) {
-      if (!existingDates.has(deliveryDate)) await generateDayOrders(deliveryDate);
-    }
+  // every late report was decided above, so generating from all reports is consistent with the
+  // decisions (refused ones stay out, locked contributions stay as the admin set them)
+  for (const deliveryDate of deliveryDatesProducedOn(fortalezaDateISO())) {
+    await generateDayOrders(deliveryDate);
   }
 
   revalidateOrdersPaths();

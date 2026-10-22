@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronRight, Printer, RefreshCw, Truck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchAll } from "@/lib/supabase/fetch-all";
 import { classifyCycleReports } from "@/lib/orders/classify-send";
 import { requireUser } from "@/lib/auth/get-session";
 import { PedidosTabs } from "@/components/orders/pedidos-tabs";
@@ -71,9 +72,17 @@ export default async function OrdensPorDiaPage() {
   ]);
 
   const orderIds = (orders ?? []).map((o) => o.id);
-  const { data: contributions } = orderIds.length
-    ? await supabase.from("production_order_contributions").select("*").in("order_id", orderIds)
-    : { data: [] as ProductionOrderContribution[] };
+  const contributions = orderIds.length
+    ? await fetchAll<ProductionOrderContribution>((from, to) =>
+        supabase
+          .from("production_order_contributions")
+          .select("*")
+          .in("order_id", orderIds)
+          .order("order_id")
+          .order("store_id")
+          .range(from, to)
+      )
+    : ([] as ProductionOrderContribution[]);
 
   // contributions built from an earlier cycle's report (store didn't send for this delivery)
   const contributionReportIds = [...new Set((contributions ?? []).map((c) => c.report_id).filter(Boolean))] as string[];
@@ -147,16 +156,22 @@ export default async function OrdensPorDiaPage() {
   const checkDates = [...new Set([...orderDates, ...inProductionDates])];
   const weekdaysNeeded = [...new Set(checkDates.map((d) => weekdayOfISODate(d)))];
 
-  const [{ data: allDeliveryDays }, { data: cycleReports }] = await Promise.all([
+  // every row of every report (about 70 per send): read in pages, a single request stops at 1000 rows
+  const [{ data: allDeliveryDays }, cycleReports] = await Promise.all([
     weekdaysNeeded.length
       ? supabase.from("store_delivery_days").select("*").in("weekday", weekdaysNeeded)
       : Promise.resolve({ data: [] as StoreDeliveryDay[] }),
     checkDates.length
-      ? supabase
-          .from("store_stock_reports")
-          .select("id, store_id, delivery_date, created_at, late_for_order_id, late_without_order, late_acknowledged")
-          .in("delivery_date", checkDates)
-      : Promise.resolve({ data: [] as CycleReport[] }),
+      ? fetchAll<CycleReport>((from, to) =>
+          supabase
+            .from("store_stock_reports")
+            .select("id, store_id, delivery_date, created_at, late_for_order_id, late_without_order, late_acknowledged")
+            .in("delivery_date", checkDates)
+            .order("created_at")
+            .order("id")
+            .range(from, to)
+        )
+      : Promise.resolve([] as CycleReport[]),
   ]);
 
   const scheduledStoreIdsByDate = new Map<string, Set<string>>();

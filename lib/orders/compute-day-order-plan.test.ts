@@ -7,7 +7,8 @@ const tables: Record<string, Row[]> = {};
 
 function query(table: string) {
   let rows = [...(tables[table] ?? [])];
-  let sort: { col: string; asc: boolean } | null = null;
+  const sorts: { col: string; asc: boolean }[] = [];
+  let window: { from: number; to: number } | null = null;
   const builder = {
     select: () => builder,
     eq: (col: string, val: unknown) => ((rows = rows.filter((r) => r[col] === val)), builder),
@@ -18,13 +19,22 @@ function query(table: string) {
       rows = rows.filter((r) => r.delivery_date === null || (r.delivery_date as string) < lt);
       return builder;
     },
-    order: (col: string, opts: { ascending: boolean }) => ((sort = { col, asc: opts.ascending }), builder),
-    then: (resolve: (v: { data: Row[] }) => unknown) => {
-      if (sort) {
-        const { col, asc } = sort;
-        rows.sort((a, b) => (String(a[col]) < String(b[col]) ? -1 : 1) * (asc ? 1 : -1));
+    order: (col: string, opts?: { ascending: boolean }) => (sorts.push({ col, asc: opts?.ascending ?? true }), builder),
+    range: (from: number, to: number) => ((window = { from, to }), builder),
+    then: (resolve: (v: { data: Row[]; error: null }) => unknown) => {
+      if (sorts.length) {
+        rows.sort((a, b) => {
+          for (const { col, asc } of sorts) {
+            const x = String(a[col]);
+            const y = String(b[col]);
+            if (x !== y) return (x < y ? -1 : 1) * (asc ? 1 : -1);
+          }
+          return 0;
+        });
       }
-      return Promise.resolve({ data: rows }).then(resolve);
+      // like the real API: a request returns at most 1000 rows, and a range picks a slice of them
+      const slice = window ? rows.slice(window.from, window.to + 1) : rows.slice(0, 1000);
+      return Promise.resolve({ data: slice, error: null }).then(resolve);
     },
   };
   return builder;
@@ -50,6 +60,20 @@ beforeEach(() => {
   tables.products = [{ id: P, name: "Pudim", sector_id: "s1", unit: "un" }];
   tables.store_stock_reports = [];
   tables.late_report_decisions = [];
+});
+
+describe("computeDayOrderPlan with more than 1000 report rows", () => {
+  it("still sees the stores whose reports are the oldest", async () => {
+    tables.store_stock_reports = [
+      report("old-c", "C", 3, MONDAY, "2026-09-01T10:00:00Z", "sub-c"),
+      ...Array.from({ length: 1100 }, (_, i) =>
+        report(`a${i}`, "A", 5, MONDAY, `2026-10-02T10:${String(Math.floor(i / 60)).padStart(2, "0")}:${String(i % 60).padStart(2, "0")}Z`, `sub-a${i}`)
+      ),
+    ];
+    const contributions = (await computeDayOrderPlan(MONDAY)).byProduct.get(P)!;
+    expect(contributions.get("C")).toEqual({ quantity: 7, reportId: "old-c" });
+    expect(contributions.get("A")?.quantity).toBe(5);
+  });
 });
 
 describe("computeDayOrderPlan fallback to the last order", () => {
