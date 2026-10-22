@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import { requireUser } from "@/lib/auth/get-session";
 import { createClient } from "@/lib/supabase/server";
 import { fortalezaDateISO } from "@/lib/dates";
@@ -23,6 +24,13 @@ export default async function ContagemHortifrutPage({ searchParams }: { searchPa
       : Promise.resolve({ data: null }),
   ]);
 
+  // the public link is fixed: it is created the first time an administrator opens this screen and kept
+  let token = (setting?.value as string | undefined) ?? null;
+  if (profile.is_admin && !token) {
+    token = randomBytes(18).toString("base64url");
+    await supabase.from("app_settings").upsert({ key: "hortifruti_count_token", value: token, updated_at: new Date().toISOString() });
+  }
+
   const countByMaterial = new Map(((dayCounts ?? []) as HortifrutiCount[]).map((c) => [c.raw_material_id, Number(c.quantity)]));
   const rows: CountRow[] = materials.map((m) => ({
     id: m.id,
@@ -35,7 +43,7 @@ export default async function ContagemHortifrutPage({ searchParams }: { searchPa
 
   return (
     <div className="space-y-4">
-      {profile.is_admin && <HortifrutLinkCard token={(setting?.value as string | undefined) ?? null} />}
+      {profile.is_admin && <HortifrutLinkCard token={token} />}
       <HortifrutCountForm key={date} date={date} rows={rows} canEdit={profile.is_admin || sectors.length > 0} />
     </div>
   );

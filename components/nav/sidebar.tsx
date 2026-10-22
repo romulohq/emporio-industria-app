@@ -14,14 +14,17 @@ import {
   LogOut,
 } from "lucide-react";
 import { signOut } from "@/app/(auth)/login/actions";
+import { SidebarGroup } from "@/components/nav/sidebar-group";
 import type { Profile, Sector } from "@/lib/types/database.types";
 
 type NavItem = {
   href: string;
   label: string;
   icon: typeof LayoutDashboard;
-  /** submenu shown under the item */
+  /** submenu that opens when the item is clicked */
   children?: { href: string; label: string }[];
+  /** address prefix of the item's section (the submenu stays open inside it) */
+  basePath?: string;
 };
 
 const NAV_ITEMS: NavItem[] = [
@@ -29,7 +32,13 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/produtos", label: "Produtos", icon: Package },
   { href: "/estoque", label: "Estoque", icon: Boxes },
   { href: "/pedidos", label: "Pedidos", icon: ClipboardList },
-  { href: "/compras/hortifrut", label: "Compras", icon: ShoppingCart, children: [{ href: "/compras/hortifrut", label: "Hortifrut" }] },
+  {
+    href: "/compras/hortifrut",
+    label: "Compras",
+    icon: ShoppingCart,
+    basePath: "/compras",
+    children: [{ href: "/compras/hortifrut", label: "Hortifrut" }],
+  },
   { href: "/historico", label: "Histórico", icon: History },
 ];
 
@@ -63,7 +72,16 @@ export function Sidebar({
       </Link>
 
       <nav className="flex-1 space-y-1 px-3">
-        {NAV_ITEMS.map((item) => (
+        {NAV_ITEMS.map((item) =>
+          item.children ? (
+            <SidebarGroup
+              key={item.label}
+              label={item.label}
+              icon={<item.icon className="h-[18px] w-[18px]" strokeWidth={2} />}
+              basePath={item.basePath ?? item.href}
+              items={item.children}
+            />
+          ) : (
           <div key={item.href + item.label}>
             <Link
               href={item.href}
@@ -77,21 +95,9 @@ export function Sidebar({
                 </span>
               )}
             </Link>
-            {item.children && (
-              <div className="ml-[22px] mt-0.5 space-y-0.5 border-l border-neutral-200 pl-3">
-                {item.children.map((child) => (
-                  <Link
-                    key={child.href}
-                    href={child.href}
-                    className="block rounded-lg px-3 py-1.5 text-sm text-neutral-500 transition-colors hover:bg-orange-50 hover:text-orange-700"
-                  >
-                    {child.label}
-                  </Link>
-                ))}
-              </div>
-            )}
           </div>
-        ))}
+          )
+        )}
 
         {profile.is_admin && (
           <>

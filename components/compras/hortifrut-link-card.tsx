@@ -44,7 +44,8 @@ export function HortifrutLinkCard({ token }: { token: string | null }) {
           <div>
             <h2 className="text-sm font-semibold text-neutral-900">Contagem pelo celular</h2>
             <p className="text-xs text-neutral-500">
-              Quem conta o hortifrut abre este link no celular, sem precisar de login, e informa o estoque do dia.
+              Quem conta o hortifrut abre este link no celular, sem precisar de login, e informa o estoque. O link é
+              fixo, use sempre o mesmo: cada contagem enviada atualiza o estoque do hortifrut com os últimos valores.
             </p>
           </div>
         </div>
@@ -59,15 +60,17 @@ export function HortifrutLinkCard({ token }: { token: string | null }) {
               {copied ? "Link copiado" : "Copiar link"}
             </button>
           )}
-          <button
-            type="button"
-            onClick={generate}
-            disabled={pending}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${pending ? "animate-spin" : ""}`} />
-            {token ? "Gerar novo link" : "Gerar link"}
-          </button>
+          {!token && (
+            <button
+              type="button"
+              onClick={generate}
+              disabled={pending}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${pending ? "animate-spin" : ""}`} />
+              Gerar link
+            </button>
+          )}
         </div>
       </div>
       {path && (
@@ -75,6 +78,18 @@ export function HortifrutLinkCard({ token }: { token: string | null }) {
           <a href={path} target="_blank" rel="noreferrer" className="text-orange-700 hover:underline">
             {path}
           </a>
+        </p>
+      )}
+      {token && (
+        <p className="mt-2 text-right">
+          <button
+            type="button"
+            onClick={generate}
+            disabled={pending}
+            className="text-[11px] text-neutral-400 hover:text-red-600 hover:underline disabled:opacity-50"
+          >
+            Trocar o link (o atual deixa de funcionar)
+          </button>
         </p>
       )}
       {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
