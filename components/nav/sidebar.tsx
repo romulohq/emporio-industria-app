@@ -7,6 +7,7 @@ import {
   ClipboardList,
   History,
   ShoppingCart,
+  BarChart3,
   Users,
   Building2,
   Store,
@@ -39,6 +40,7 @@ const NAV_ITEMS: NavItem[] = [
     basePath: "/compras",
     children: [{ href: "/compras/hortifrut", label: "Hortifrut" }],
   },
+  { href: "/produtividade", label: "Produtividade", icon: BarChart3 },
   { href: "/historico", label: "Histórico", icon: History },
 ];
 
