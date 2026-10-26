@@ -8,6 +8,8 @@ import {
   History,
   ShoppingCart,
   BarChart3,
+  FileUp,
+  Tags,
   Users,
   Building2,
   Store,
@@ -49,6 +51,8 @@ const ADMIN_ITEMS = [
   { href: "/admin/setores", label: "Setores", icon: Building2 },
   { href: "/admin/lojas", label: "Lojas", icon: Store },
   { href: "/admin/rotas", label: "Rotas", icon: Route },
+  { href: "/importar-erp", label: "Importar ERP", icon: FileUp },
+  { href: "/cadastro-produtos-erp", label: "Produtos ERP", icon: Tags },
 ];
 
 export function Sidebar({

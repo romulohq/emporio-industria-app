@@ -54,3 +54,17 @@ export async function requireAdmin(): Promise<SessionContext> {
   }
   return session;
 }
+
+/** Para route handlers: devolve a sessão do admin ou null (sem redirecionar, para responder 401/403 em JSON). */
+export async function getAdminSession(): Promise<SessionContext | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+  if (!profile || !profile.is_admin) return null;
+
+  return { userId: user.id, email: user.email ?? null, profile: profile as Profile, sectors: [] };
+}

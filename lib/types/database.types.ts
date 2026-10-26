@@ -284,6 +284,56 @@ export type StockMovement = {
   created_at: string;
 };
 
+export type ErpImport = {
+  id: string;
+  file_name: string;
+  file_path: string | null;
+  unit: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  rows_total: number;
+  rows_inserted: number;
+  rows_updated: number;
+  rows_with_warning: number;
+  imported_by: string | null;
+  imported_by_name: string | null;
+  created_at: string;
+};
+
+export type ErpProductionOrder = {
+  id: string;
+  unit: string;
+  order_number: number;
+  product_code: string;
+  erp_description: string;
+  packaging: string | null;
+  unit_measure: string | null;
+  item_type: string | null;
+  launch_date: string;
+  quantity: number;
+  unit_cost: number | null;
+  status: string;
+  excluded: boolean;
+  note: string | null;
+  import_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ErpSector = "Pães" | "Salgados" | "Folheados" | "Cozinha";
+
+export type ErpProductCatalogItem = {
+  product_code: string;
+  display_name: string;
+  sector: ErpSector | null;
+  group_name: string | null;
+  unit_measure: string | null;
+  unit_weight_kg: number | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 type Relationship = {
   foreignKeyName: string;
   columns: string[];
@@ -471,6 +521,24 @@ export type Database = {
         Row: LateReportDecisionRow;
         Insert: Partial<LateReportDecisionRow>;
         Update: Partial<LateReportDecisionRow>;
+        Relationships: Relationship[];
+      };
+      erp_imports: {
+        Row: ErpImport;
+        Insert: Partial<ErpImport>;
+        Update: Partial<ErpImport>;
+        Relationships: Relationship[];
+      };
+      erp_production_orders: {
+        Row: ErpProductionOrder;
+        Insert: Partial<ErpProductionOrder>;
+        Update: Partial<ErpProductionOrder>;
+        Relationships: Relationship[];
+      };
+      erp_product_catalog: {
+        Row: ErpProductCatalogItem;
+        Insert: Partial<ErpProductCatalogItem>;
+        Update: Partial<ErpProductCatalogItem>;
         Relationships: Relationship[];
       };
     };
