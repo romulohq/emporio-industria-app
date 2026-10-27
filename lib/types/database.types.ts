@@ -308,6 +308,8 @@ export type ErpProductionOrder = {
   erp_description: string;
   packaging: string | null;
   unit_measure: string | null;
+  /** UM que o relatório do ERP trouxe (a unit_measure pode ter sido corrigida para KG) */
+  erp_unit_measure: string | null;
   item_type: string | null;
   launch_date: string;
   quantity: number;

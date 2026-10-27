@@ -251,6 +251,25 @@ export function ImportErp() {
             </table>
           </div>
 
+          {preview.unitOverrides.length > 0 && (
+            <Section title={`Itens de quilo tratados como kg (${preview.unitOverrides.length})`} tone="neutral">
+              <p className="text-xs text-neutral-600">
+                O relatório traz estes itens como {preview.unitOverrides[0].from}, mas são de quilo (KG na descrição ou setor Cozinha): entram como kg.
+                A medida original do relatório fica guardada.
+              </p>
+              <ul className="max-h-40 space-y-0.5 overflow-y-auto text-sm text-neutral-800">
+                {preview.unitOverrides.map((u) => (
+                  <li key={u.code}>
+                    <span className="font-mono text-xs">{u.code}</span> — {u.description}{" "}
+                    <span className="text-xs text-neutral-500">
+                      ({u.orders} {u.orders === 1 ? "ordem" : "ordens"})
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
+
           {preview.unknownCodes.length > 0 && (
             <Section title={`Códigos sem cadastro em Produtos ERP (${preview.unknownCodes.length})`} tone="amber">
               <p className="text-xs text-neutral-600">

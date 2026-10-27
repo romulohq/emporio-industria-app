@@ -1,6 +1,6 @@
 import { requireAdmin } from "@/lib/auth/get-session";
 import { CatalogEditor, type PendingProduct } from "@/components/erp/catalog-editor";
-import { suggestWeightKg } from "@/lib/erp/analyze";
+import { suggestUnitMeasure, suggestWeightKg } from "@/lib/erp/analyze";
 import { fetchAll, loadCatalog } from "@/lib/erp/queries";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -25,7 +25,8 @@ export default async function CadastroProdutosErpPage() {
   const pendingByCode = new Map<string, PendingProduct>();
   for (const order of orders) {
     if (known.has(order.product_code) || pendingByCode.has(order.product_code)) continue;
-    const unitMeasure = order.unit_measure === "KG" ? "KG" : "UNID";
+    // itens de quilo vêm do Everest como UNID: a descrição ("... KG") decide
+    const unitMeasure = suggestUnitMeasure(order.erp_description, order.unit_measure);
     pendingByCode.set(order.product_code, {
       code: order.product_code,
       description: order.erp_description,

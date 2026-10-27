@@ -63,13 +63,13 @@ describe("peso sugerido pela descrição", () => {
 describe("análise da prévia", () => {
   it("totaliza por mês em ordens, unidades e kg", () => {
     const ctx = emptyCtx();
-    ctx.catalog.set("9000001", { unitWeightKg: 0.1, unitMeasure: "UNID" });
+    ctx.catalog.set("9000001", { unitWeightKg: 0.1, unitMeasure: "UNID", sector: null });
     const rows = [
       row({ orderNumber: 1, quantity: 1000 }),
       row({ orderNumber: 2, quantity: 500, launchDate: "2026-10-02" }),
       row({ orderNumber: 3, productCode: "4000012", unitMeasure: "KG", quantity: 36, launchDate: "2026-09-14" }),
     ];
-    ctx.catalog.set("4000012", { unitWeightKg: 1, unitMeasure: "KG" });
+    ctx.catalog.set("4000012", { unitWeightKg: 1, unitMeasure: "KG", sector: null });
     const { months } = analyzeRows(rows, ctx);
     expect(months).toEqual([
       { month: "2026-09", orders: 2, units: 1000, kg: 136, withoutWeight: 0 },
@@ -79,7 +79,7 @@ describe("análise da prévia", () => {
 
   it("avisa de código sem cadastro e de ordens fora de CONCLUÍDO", () => {
     const ctx = emptyCtx();
-    ctx.catalog.set("9000001", { unitWeightKg: 0.1, unitMeasure: "UNID" });
+    ctx.catalog.set("9000001", { unitWeightKg: 0.1, unitMeasure: "UNID", sector: null });
     const rows = [
       row({ orderNumber: 1 }),
       row({ orderNumber: 2, productCode: "9999999", description: "PI NOVO 50G" }),
@@ -97,7 +97,7 @@ describe("análise da prévia", () => {
 
   it("sinaliza quantidade acima de 10x a mediana do produto (usando também o histórico)", () => {
     const ctx = emptyCtx();
-    ctx.catalog.set("9000001", { unitWeightKg: 0.1, unitMeasure: "UNID" });
+    ctx.catalog.set("9000001", { unitWeightKg: 0.1, unitMeasure: "UNID", sector: null });
     ctx.history = [
       { key: "18 - FABRICA CONGELADOS#90", productCode: "9000001", quantity: 100 },
       { key: "18 - FABRICA CONGELADOS#91", productCode: "9000001", quantity: 120 },
@@ -110,14 +110,14 @@ describe("análise da prévia", () => {
 
   it("não sinaliza com amostra pequena (menos de 3 ordens)", () => {
     const ctx = emptyCtx();
-    ctx.catalog.set("9000001", { unitWeightKg: 0.1, unitMeasure: "UNID" });
+    ctx.catalog.set("9000001", { unitWeightKg: 0.1, unitMeasure: "UNID", sector: null });
     const { outliers } = analyzeRows([row({ orderNumber: 1, quantity: 10 }), row({ orderNumber: 2, quantity: 5000 })], ctx);
     expect(outliers).toEqual([]);
   });
 
   it("conta ordens que já existem e mostra o que muda", () => {
     const ctx = emptyCtx();
-    ctx.catalog.set("9000001", { unitWeightKg: 0.1, unitMeasure: "UNID" });
+    ctx.catalog.set("9000001", { unitWeightKg: 0.1, unitMeasure: "UNID", sector: null });
     ctx.existing.set("18 - FABRICA CONGELADOS#1", {
       key: "18 - FABRICA CONGELADOS#1",
       productCode: "9000001",
@@ -145,26 +145,63 @@ describe("análise da prévia", () => {
 describe("opções da importação", () => {
   it("ordens fora de CONCLUÍDO ficam excluídas, a menos que o admin inclua a situação", () => {
     const rows = [row({ orderNumber: 1 }), row({ orderNumber: 2, status: "ATIVO" })];
-    const without = applyImportOptions(rows, { includeStatuses: [], overrides: [] });
+    const without = applyImportOptions(rows, { includeStatuses: [], overrides: [] }, new Map());
     expect(without.map((r) => r.excluded)).toEqual([false, true]);
     expect(without[1].note).toContain("ATIVO");
 
-    const withActive = applyImportOptions(rows, { includeStatuses: ["ativo"], overrides: [] });
+    const withActive = applyImportOptions(rows, { includeStatuses: ["ativo"], overrides: [] }, new Map());
     expect(withActive.map((r) => r.excluded)).toEqual([false, false]);
   });
 
   it("corrige a quantidade e exclui linhas, guardando o motivo", () => {
     const rows = [row({ orderNumber: 1, quantity: 5000 }), row({ orderNumber: 2 })];
-    const out = applyImportOptions(rows, {
-      includeStatuses: [],
-      overrides: [
-        { key: "18 - FABRICA CONGELADOS#1", quantity: 500 },
-        { key: "18 - FABRICA CONGELADOS#2", excluded: true },
-      ],
-    });
+    const out = applyImportOptions(
+      rows,
+      {
+        includeStatuses: [],
+        overrides: [
+          { key: "18 - FABRICA CONGELADOS#1", quantity: 500 },
+          { key: "18 - FABRICA CONGELADOS#2", excluded: true },
+        ],
+      },
+      new Map()
+    );
     expect(out[0]).toMatchObject({ quantity: 500, excluded: false });
     expect(out[0].note).toContain("5000");
     expect(out[1]).toMatchObject({ excluded: true });
+  });
+});
+
+describe("itens de quilo que o relatório traz como UNID", () => {
+  const canja = (over: Partial<ErpOrderRow> & { orderNumber: number }) =>
+    row({ productCode: "9000182", description: "PI CANJA KG", ...over });
+
+  it("entram como kg na prévia e a medida original fica guardada na importação", () => {
+    const ctx = emptyCtx();
+    const rows = [canja({ orderNumber: 1, quantity: 256 }), row({ orderNumber: 2, quantity: 1000 })];
+    ctx.catalog.set("9000001", { unitWeightKg: 0.1, unitMeasure: "UNID", sector: null });
+
+    const analysis = analyzeRows(rows, ctx);
+    expect(analysis.months).toEqual([{ month: "2026-09", orders: 2, units: 1000, kg: 356, withoutWeight: 0 }]);
+    expect(analysis.unitOverrides).toEqual([{ code: "9000182", description: "PI CANJA KG", orders: 1, from: "UNID" }]);
+
+    const imported = applyImportOptions(rows, { includeStatuses: [], overrides: [] }, ctx.catalog);
+    expect(imported[0]).toMatchObject({ unitMeasure: "KG", erpUnitMeasure: "UNID" });
+    expect(imported[1]).toMatchObject({ unitMeasure: "UNID", erpUnitMeasure: "UNID" });
+  });
+
+  it("produto do setor Cozinha sem KG no nome (Purê de Batata) também é kg", () => {
+    const ctx = emptyCtx();
+    ctx.catalog.set("9000379", { unitWeightKg: null, unitMeasure: null, sector: "Cozinha" });
+    const pure = row({ orderNumber: 1, productCode: "9000379", description: "PI PURE DE BATATA", quantity: 40 });
+    expect(analyzeRows([pure], ctx).months[0]).toMatchObject({ units: 0, kg: 40 });
+  });
+
+  it("a medida escolhida no catálogo vale mais que a regra", () => {
+    const ctx = emptyCtx();
+    ctx.catalog.set("9000182", { unitWeightKg: 1, unitMeasure: "UNID", sector: "Cozinha" });
+    const [imported] = applyImportOptions([canja({ orderNumber: 1 })], { includeStatuses: [], overrides: [] }, ctx.catalog);
+    expect(imported.unitMeasure).toBe("UNID");
   });
 });
 

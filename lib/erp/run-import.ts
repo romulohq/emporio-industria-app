@@ -50,7 +50,7 @@ export async function runImport(args: {
   const admin = createAdminClient();
   const context = await loadAnalysisContext(parsed.rows);
   const analysis = analyzeRows(parsed.rows, context);
-  const rows = applyImportOptions(parsed.rows, args.options);
+  const rows = applyImportOptions(parsed.rows, args.options, context.catalog);
   const period = periodOf(parsed);
 
   const importId = randomUUID();
@@ -98,6 +98,7 @@ export async function runImport(args: {
     erp_description: r.description,
     packaging: r.packaging,
     unit_measure: r.unitMeasure,
+    erp_unit_measure: r.erpUnitMeasure,
     item_type: r.itemType,
     launch_date: r.launchDate,
     quantity: r.quantity,

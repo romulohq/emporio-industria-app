@@ -1,5 +1,6 @@
 import { normalizeText } from "@/lib/erp/br";
 import { orderKey, type ErpOrderRow } from "@/lib/erp/types";
+import { descriptionIsKg, effectiveUnitMeasure } from "@/lib/erp/units";
 
 export const OUTLIER_FACTOR = 10;
 /** Com menos ordens que isso a mediana não diz nada — não se sinaliza quantidade fora do normal. */
@@ -9,7 +10,7 @@ export function isConcluded(status: string): boolean {
   return normalizeText(status) === "CONCLUIDO";
 }
 
-export type CatalogInfo = { unitWeightKg: number | null; unitMeasure: string | null };
+export type CatalogInfo = { unitWeightKg: number | null; unitMeasure: string | null; sector: string | null };
 
 export type ExistingOrder = {
   key: string;
@@ -57,6 +58,8 @@ export type Analysis = {
   nonConcluded: PreviewOrder[];
   outliers: (PreviewOrder & { median: number; ratio: number })[];
   existing: { count: number; changed: { key: string; orderNumber: number; changes: string[] }[] };
+  /** produtos que o relatório traz como UNID mas que são de quilo e foram tratados como KG */
+  unitOverrides: { code: string; description: string; orders: number; from: string }[];
   /** ordens com qualquer aviso (sem cadastro, não concluída ou fora do normal) */
   flaggedKeys: Set<string>;
 };
@@ -87,7 +90,7 @@ export function summarizeByMonth(rows: ErpOrderRow[], catalog: Map<string, Catal
     const month = row.launchDate.slice(0, 7);
     const summary = months.get(month) ?? { month, orders: 0, units: 0, kg: 0, withoutWeight: 0 };
     summary.orders += 1;
-    if (row.unitMeasure === "KG") {
+    if (effectiveUnitMeasure(row, catalog.get(row.productCode)) === "KG") {
       summary.kg += row.quantity;
     } else {
       summary.units += row.quantity;
@@ -119,6 +122,14 @@ export function analyzeRows(rows: ErpOrderRow[], ctx: AnalysisContext): Analysis
     entry.orders += 1;
     unknown.set(row.productCode, entry);
     flaggedKeys.add(orderKey(row));
+  }
+
+  const overrides = new Map<string, { code: string; description: string; orders: number; from: string }>();
+  for (const row of rows) {
+    if (row.unitMeasure === "KG" || effectiveUnitMeasure(row, ctx.catalog.get(row.productCode)) !== "KG") continue;
+    const entry = overrides.get(row.productCode) ?? { code: row.productCode, description: row.description, orders: 0, from: row.unitMeasure };
+    entry.orders += 1;
+    overrides.set(row.productCode, entry);
   }
 
   const nonConcluded = rows.filter((r) => !isConcluded(r.status)).map(toPreview);
@@ -168,19 +179,25 @@ export function analyzeRows(rows: ErpOrderRow[], ctx: AnalysisContext): Analysis
     nonConcluded,
     outliers,
     existing: { count: existingCount, changed },
+    unitOverrides: [...overrides.values()].sort((a, b) => a.code.localeCompare(b.code)),
     flaggedKeys,
   };
 }
 
 /** Peso por unidade sugerido a partir da descrição: "100G" = 0,100 kg, "90 G" = 0,090 kg, "1,5KG" = 1,5 kg. UM KG = 1. */
 export function suggestWeightKg(description: string, unitMeasure: string | null): number | null {
-  if (unitMeasure === "KG") return 1;
+  if (unitMeasure === "KG" || descriptionIsKg(description)) return 1;
   const match = description.toUpperCase().match(/(?<![A-Z0-9,.])(\d+(?:[.,]\d+)?)\s*(KG|GR|G)(?![A-Z0-9])/);
   if (!match) return null;
   const amount = Number(match[1].replace(",", "."));
   if (!Number.isFinite(amount) || amount <= 0) return null;
   const kg = match[2] === "KG" ? amount : amount / 1000;
   return Math.round(kg * 10000) / 10000;
+}
+
+/** Medida sugerida ao cadastrar um código novo: KG para itens de quilo, mesmo que o relatório traga UNID. */
+export function suggestUnitMeasure(description: string, reportUnit: string | null): "UNID" | "KG" {
+  return reportUnit === "KG" || descriptionIsKg(description) ? "KG" : "UNID";
 }
 
 // -- opções da importação ------------------------------------------------------------------------------
@@ -192,9 +209,10 @@ export type ImportOptions = {
   overrides: { key: string; quantity?: number | null; excluded?: boolean }[];
 };
 
-export type ImportRow = ErpOrderRow & { excluded: boolean; note: string | null };
+/** unitMeasure já é a medida que vale (KG para itens de quilo); erpUnitMeasure é a que o relatório trouxe. */
+export type ImportRow = ErpOrderRow & { excluded: boolean; note: string | null; erpUnitMeasure: string };
 
-export function applyImportOptions(rows: ErpOrderRow[], options: ImportOptions): ImportRow[] {
+export function applyImportOptions(rows: ErpOrderRow[], options: ImportOptions, catalog: Map<string, CatalogInfo>): ImportRow[] {
   const overrides = new Map(options.overrides.map((o) => [o.key, o]));
   const included = new Set(options.includeStatuses.map(normalizeText));
 
@@ -217,6 +235,13 @@ export function applyImportOptions(rows: ErpOrderRow[], options: ImportOptions):
       notes.push(`Situação ${row.status}: não incluída na importação`);
     }
 
-    return { ...row, quantity, excluded, note: notes.length ? notes.join("; ") : null };
+    return {
+      ...row,
+      quantity,
+      excluded,
+      note: notes.length ? notes.join("; ") : null,
+      unitMeasure: effectiveUnitMeasure(row, catalog.get(row.productCode)),
+      erpUnitMeasure: row.unitMeasure,
+    };
   });
 }
