@@ -183,7 +183,7 @@ describe("itens de quilo que o relatório traz como UNID", () => {
 
     const analysis = analyzeRows(rows, ctx);
     expect(analysis.months).toEqual([{ month: "2026-09", orders: 2, units: 1000, kg: 356, withoutWeight: 0 }]);
-    expect(analysis.unitOverrides).toEqual([{ code: "9000182", description: "PI CANJA KG", orders: 1, from: "UNID" }]);
+    expect(analysis.unitOverrides).toEqual([{ code: "9000182", description: "PI CANJA KG", displayName: null, orders: 1, from: "UNID" }]);
 
     const imported = applyImportOptions(rows, { includeStatuses: [], overrides: [] }, ctx.catalog);
     expect(imported[0]).toMatchObject({ unitMeasure: "KG", erpUnitMeasure: "UNID" });
@@ -202,6 +202,23 @@ describe("itens de quilo que o relatório traz como UNID", () => {
     ctx.catalog.set("9000182", { unitWeightKg: 1, unitMeasure: "UNID", sector: "Cozinha" });
     const [imported] = applyImportOptions([canja({ orderNumber: 1 })], { includeStatuses: [], overrides: [] }, ctx.catalog);
     expect(imported.unitMeasure).toBe("UNID");
+  });
+});
+
+describe("nome real do produto na prévia", () => {
+  it("itens já cadastrados aparecem com o nome real; os outros ficam com a descrição do Everest", () => {
+    const ctx = emptyCtx();
+    ctx.catalog.set("9000182", { unitWeightKg: 1, unitMeasure: "KG", sector: "Cozinha", displayName: "CANJA" });
+    const rows = [
+      row({ orderNumber: 1, productCode: "9000182", description: "PI CANJA KG", status: "ATIVO" }),
+      row({ orderNumber: 2, productCode: "9999999", description: "PI NOVO 50G", status: "ATIVO" }),
+    ];
+    const { nonConcluded, unitOverrides } = analyzeRows(rows, ctx);
+    expect(nonConcluded.map((o) => [o.orderNumber, o.displayName])).toEqual([
+      [1, "CANJA"],
+      [2, null],
+    ]);
+    expect(unitOverrides).toEqual([{ code: "9000182", description: "PI CANJA KG", displayName: "CANJA", orders: 1, from: "UNID" }]);
   });
 });
 

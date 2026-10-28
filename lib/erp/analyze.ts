@@ -10,7 +10,13 @@ export function isConcluded(status: string): boolean {
   return normalizeText(status) === "CONCLUIDO";
 }
 
-export type CatalogInfo = { unitWeightKg: number | null; unitMeasure: string | null; sector: string | null };
+export type CatalogInfo = {
+  unitWeightKg: number | null;
+  unitMeasure: string | null;
+  sector: string | null;
+  /** nome real do produto (Produtos ERP), em vez da descrição do Everest */
+  displayName?: string | null;
+};
 
 export type ExistingOrder = {
   key: string;
@@ -36,6 +42,8 @@ export type PreviewOrder = {
   orderNumber: number;
   productCode: string;
   description: string;
+  /** nome real do produto, quando o código já está no catálogo */
+  displayName: string | null;
   launchDate: string;
   quantity: number;
   unitMeasure: string;
@@ -59,7 +67,7 @@ export type Analysis = {
   outliers: (PreviewOrder & { median: number; ratio: number })[];
   existing: { count: number; changed: { key: string; orderNumber: number; changes: string[] }[] };
   /** produtos que o relatório traz como UNID mas que são de quilo e foram tratados como KG */
-  unitOverrides: { code: string; description: string; orders: number; from: string }[];
+  unitOverrides: { code: string; description: string; displayName: string | null; orders: number; from: string }[];
   /** ordens com qualquer aviso (sem cadastro, não concluída ou fora do normal) */
   flaggedKeys: Set<string>;
 };
@@ -71,8 +79,9 @@ export function median(values: number[]): number {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-function toPreview(row: ErpOrderRow): PreviewOrder {
+function toPreview(row: ErpOrderRow, catalog?: Map<string, CatalogInfo>): PreviewOrder {
   return {
+    displayName: catalog?.get(row.productCode)?.displayName ?? null,
     key: orderKey(row),
     orderNumber: row.orderNumber,
     productCode: row.productCode,
@@ -124,15 +133,21 @@ export function analyzeRows(rows: ErpOrderRow[], ctx: AnalysisContext): Analysis
     flaggedKeys.add(orderKey(row));
   }
 
-  const overrides = new Map<string, { code: string; description: string; orders: number; from: string }>();
+  const overrides = new Map<string, { code: string; description: string; displayName: string | null; orders: number; from: string }>();
   for (const row of rows) {
     if (row.unitMeasure === "KG" || effectiveUnitMeasure(row, ctx.catalog.get(row.productCode)) !== "KG") continue;
-    const entry = overrides.get(row.productCode) ?? { code: row.productCode, description: row.description, orders: 0, from: row.unitMeasure };
+    const entry = overrides.get(row.productCode) ?? {
+      code: row.productCode,
+      description: row.description,
+      displayName: ctx.catalog.get(row.productCode)?.displayName ?? null,
+      orders: 0,
+      from: row.unitMeasure,
+    };
     entry.orders += 1;
     overrides.set(row.productCode, entry);
   }
 
-  const nonConcluded = rows.filter((r) => !isConcluded(r.status)).map(toPreview);
+  const nonConcluded = rows.filter((r) => !isConcluded(r.status)).map((r) => toPreview(r, ctx.catalog));
   for (const order of nonConcluded) flaggedKeys.add(order.key);
 
   const quantitiesByProduct = new Map<string, number[]>();
@@ -152,7 +167,7 @@ export function analyzeRows(rows: ErpOrderRow[], ctx: AnalysisContext): Analysis
     if (sample.length < OUTLIER_MIN_SAMPLE) continue;
     const mid = median(sample);
     if (mid > 0 && row.quantity > OUTLIER_FACTOR * mid) {
-      outliers.push({ ...toPreview(row), median: mid, ratio: row.quantity / mid });
+      outliers.push({ ...toPreview(row, ctx.catalog), median: mid, ratio: row.quantity / mid });
       flaggedKeys.add(orderKey(row));
     }
   }

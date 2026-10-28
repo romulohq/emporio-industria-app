@@ -260,7 +260,7 @@ export function ImportErp() {
               <ul className="max-h-40 space-y-0.5 overflow-y-auto text-sm text-neutral-800">
                 {preview.unitOverrides.map((u) => (
                   <li key={u.code}>
-                    <span className="font-mono text-xs">{u.code}</span> — {u.description}{" "}
+                    <span className="font-mono text-xs">{u.code}</span> — {u.displayName ?? u.description}{" "}
                     <span className="text-xs text-neutral-500">
                       ({u.orders} {u.orders === 1 ? "ordem" : "ordens"})
                     </span>
@@ -315,7 +315,7 @@ export function ImportErp() {
               <ul className="max-h-40 space-y-0.5 overflow-y-auto text-sm text-neutral-800">
                 {preview.nonConcluded.map((o) => (
                   <li key={o.key}>
-                    Ordem {o.orderNumber} — {o.description} · {formatDateBR(o.launchDate)} · {formatNumberBR(o.quantity, 3)} {o.unitMeasure} ·{" "}
+                    Ordem {o.orderNumber} — {o.displayName ?? o.description} · {formatDateBR(o.launchDate)} · {formatNumberBR(o.quantity, 3)} {o.unitMeasure} ·{" "}
                     <span className="font-medium">{o.status}</span>
                   </li>
                 ))}
@@ -333,7 +333,7 @@ export function ImportErp() {
                     <div key={o.key} className="flex flex-wrap items-center gap-3 rounded-md bg-white p-2 text-sm">
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium text-neutral-900">
-                          Ordem {o.orderNumber} — {o.description}
+                          Ordem {o.orderNumber} — {o.displayName ?? o.description}
                         </p>
                         <p className="text-xs text-neutral-500">
                           {formatDateBR(o.launchDate)} · lido {formatNumberBR(o.quantity, 3)} {o.unitMeasure} · mediana {formatNumberBR(o.median, 1)} (

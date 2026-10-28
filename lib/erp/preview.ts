@@ -19,7 +19,7 @@ export type ErpPreview = {
   nonConcluded: PreviewOrder[];
   outliers: (PreviewOrder & { median: number; ratio: number })[];
   existing: { count: number; changed: { key: string; orderNumber: number; changes: string[] }[] };
-  unitOverrides: { code: string; description: string; orders: number; from: string }[];
+  unitOverrides: { code: string; description: string; displayName: string | null; orders: number; from: string }[];
 };
 
 export type ErpImportResult = {

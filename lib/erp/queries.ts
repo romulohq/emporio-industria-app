@@ -40,7 +40,7 @@ export async function loadAnalysisContext(rows: ErpOrderRow[]): Promise<Analysis
 
   const catalogRows = await loadCatalog();
   const catalog = new Map<string, CatalogInfo>(
-    catalogRows.map((c) => [c.product_code, { unitWeightKg: c.unit_weight_kg, unitMeasure: c.unit_measure, sector: c.sector }])
+    catalogRows.map((c) => [c.product_code, { unitWeightKg: c.unit_weight_kg, unitMeasure: c.unit_measure, sector: c.sector, displayName: c.display_name }])
   );
 
   const history: HistoryOrder[] = [];
