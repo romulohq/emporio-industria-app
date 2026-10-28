@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { coverageOf, type CoverageLevel } from "@/lib/stock/coverage";
 import { formatBrDate } from "@/lib/dates";
+import { stockPrintLayout } from "@/lib/stock/print-layout";
 
 export type PrintRow = { id: string; name: string; unit: string; stock: number | null; min: number };
 export type PrintGroup = { sectorName: string; rows: PrintRow[] };
@@ -36,6 +37,9 @@ const TEXT: Record<CoverageLevel, string> = {
  */
 export function StockPrintReport({ date, groups }: { date: string; groups: PrintGroup[] }) {
   const [printedAt, setPrintedAt] = useState("");
+  // a altura das linhas é calculada pela quantidade de produtos, para a folha A4 ser aproveitada inteira
+  const rowCount = groups.reduce((total, group) => total + group.rows.length, 0);
+  const layout = stockPrintLayout(rowCount, groups.length);
 
   useEffect(() => {
     const stamp = () =>
@@ -72,28 +76,33 @@ export function StockPrintReport({ date, groups }: { date: string; groups: Print
 
       <div className="columns-2 gap-5">
         {groups.map((group) => (
-          <section key={group.sectorName} className="mb-2.5">
+          <section key={group.sectorName} style={{ marginBottom: `${layout.sectionGapMm}mm` }}>
             <h2
-              className={`break-after-avoid rounded-sm px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-white ${
+              className={`break-after-avoid rounded-sm px-2 text-[9px] font-bold uppercase tracking-widest text-white ${
                 SECTOR_BAND[group.sectorName] ?? "bg-neutral-600"
               }`}
+              style={{ height: `${layout.sectionHeaderMm}mm`, lineHeight: `${layout.sectionHeaderMm}mm` }}
             >
               {group.sectorName}
             </h2>
-            <table className="w-full border-collapse text-[9px]">
+            <table className="w-full border-collapse" style={{ fontSize: `${layout.fontMm}mm` }}>
               <tbody>
                 {group.rows.map((row) => {
                   const cov = row.stock === null ? null : coverageOf(row.stock, row.min);
                   const level: CoverageLevel = cov?.level ?? "none";
                   return (
-                    <tr key={row.id} className="break-inside-avoid border-b border-neutral-200 even:bg-neutral-100">
-                      <td className="py-px pl-1 pr-1.5 font-semibold text-neutral-900">{row.name}</td>
-                      <td className="whitespace-nowrap py-px pr-1.5 text-right font-bold tabular-nums text-neutral-900">
+                    <tr
+                      key={row.id}
+                      className="break-inside-avoid border-b border-neutral-200 even:bg-neutral-100"
+                      style={{ height: `${layout.rowMm}mm` }}
+                    >
+                      <td className="py-px pl-1 pr-1.5 align-middle font-semibold leading-tight text-neutral-900">{row.name}</td>
+                      <td className="whitespace-nowrap py-px pr-1.5 text-right align-middle font-bold tabular-nums text-neutral-900">
                         {row.stock === null ? "—" : `${fmt(row.stock)} ${row.unit}`}
                       </td>
-                      <td className="w-[46%] py-px pr-1">
+                      <td className="w-[42%] py-px pr-1 align-middle">
                         <div className="flex items-center gap-1">
-                          <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-neutral-300">
+                          <div className="flex-1 overflow-hidden rounded-full bg-neutral-300" style={{ height: `${layout.barMm}mm` }}>
                             <div
                               className={`h-full rounded-full ${BAR[level]}`}
                               style={{ width: `${cov?.ratio == null ? 0 : Math.max(0, Math.min(1, cov.ratio)) * 100}%` }}
