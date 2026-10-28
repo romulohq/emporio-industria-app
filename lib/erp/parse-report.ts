@@ -23,7 +23,7 @@ export async function parsePdfReport(data: Uint8Array): Promise<ParsedReport> {
     bands = result.bands;
     report.rows.push(...result.rows);
     report.problems.push(...result.problems);
-    report.warnings.push(...result.warnings);
+    for (const warning of result.warnings) if (!report.warnings.includes(warning)) report.warnings.push(warning);
     if (result.declaredTotal != null) report.declaredTotal = result.declaredTotal;
     if (result.declaredQuantity != null) report.declaredQuantity = result.declaredQuantity;
     report.pages.push({ page: index + 1, rowsRead: result.rows.length, problems: result.problems.length });

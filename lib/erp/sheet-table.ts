@@ -77,7 +77,7 @@ export function extractSheetRows(grid: SheetCell[][]): {
     if ("error" in built) problems.push({ page: null, row: i + 1, message: built.error });
     else {
       rows.push(built.row);
-      warnings.push(...built.warnings);
+      for (const warning of built.warnings) if (!warnings.includes(warning)) warnings.push(warning);
     }
   }
   return { rows, problems, warnings };

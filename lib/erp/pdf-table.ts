@@ -11,6 +11,16 @@ type Cluster = { y: number; items: PdfTextItem[] };
 const ROW_TOLERANCE = 2;
 const ALIGN_TOLERANCE = 4;
 
+/** "18 - FABRICA CONGELADOS" impresso na página (cabeçalho ou rodapé): código da empresa -> nome. */
+export function unitNamesOnPage(items: PdfTextItem[]): Map<string, string> {
+  const names = new Map<string, string>();
+  for (const item of items) {
+    const parts = item.str.trim().split(" - ");
+    if (parts.length >= 2 && /^\d+$/.test(parts[0]) && !names.has(parts[0])) names.set(parts[0], parts[parts.length - 1].trim());
+  }
+  return names;
+}
+
 export function clusterRows(items: PdfTextItem[]): Cluster[] {
   const sorted = items.filter((i) => i.str.trim() !== "").sort((a, b) => a.y - b.y || a.x - b.x);
   const clusters: Cluster[] = [];
@@ -107,6 +117,7 @@ export function extractPageRows(items: PdfTextItem[], page: number, inheritedBan
     return result;
   }
 
+  const unitNames = unitNamesOnPage(items);
   let rowNumber = 0;
   for (const cluster of clusters.slice(headerIndex + 1)) {
     const cells: Partial<Record<ColumnKey, PdfTextItem[]>> = {};
@@ -120,7 +131,7 @@ export function extractPageRows(items: PdfTextItem[], page: number, inheritedBan
       rowNumber += 1;
       const raw: RawCells = {};
       for (const [key, parts] of Object.entries(cells) as [ColumnKey, PdfTextItem[]][]) raw[key] = joinCell(parts);
-      const built = buildOrderRow(raw, page);
+      const built = buildOrderRow(raw, page, unitNames.get(String(raw.company ?? "")));
       if ("error" in built) {
         result.problems.push({ page, row: rowNumber, message: built.error });
       } else {
