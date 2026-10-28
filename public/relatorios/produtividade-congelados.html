@@ -84,7 +84,9 @@ h3{font-family:var(--f-display);font-size:14px;margin:0 0 6px}
 .mv .pp{min-width:62px;text-align:right;font-variant-numeric:tabular-nums}
 .empty{color:var(--muted);font-size:13px}
 .mom-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:12px}
-.mcard{border:1px solid rgba(229,229,229,.7);border-top:4px solid var(--c);border-radius:var(--card-radius);box-shadow:var(--card-shadow);padding:14px 14px 10px;min-width:0;background:var(--surface)}
+.mcard{position:relative;border:1px solid rgba(229,229,229,.7);border-radius:var(--card-radius);box-shadow:var(--card-shadow);padding:16px 14px 10px;min-width:0;background:var(--surface)}
+/* a cor do setor é só uma barrinha reta no topo, sem acompanhar a curva dos cantos */
+.mcard::before{content:"";position:absolute;top:0;left:18px;right:18px;height:3px;background:var(--c);border-radius:0 0 3px 3px}
 .mcard.wide{grid-column:1/-1}
 .mcard .mh{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:4px}
 .mcard .mh h3{margin:0;font-size:15px}
