@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { PRESENCE_COLORS, colorFor, firstName, groupByCell, otherCollaborators, type Collaborator } from "@/lib/schedule/presence";
+import { PRESENCE_COLORS, colorFor, firstName, groupByCell, otherTabs, uniqueUsers, type Collaborator } from "@/lib/schedule/presence";
 
 const person = (over: Partial<Collaborator>): Collaborator => ({
+  tab: "t1",
   userId: "u1",
   name: "Ana",
   color: "#111",
@@ -24,18 +25,21 @@ describe("presença no cronograma", () => {
     expect(firstName("")).toBe("Alguém");
   });
 
-  it("tira a própria pessoa e junta as abas repetidas (vale a que está numa célula)", () => {
+  it("tira só esta aba: a mesma pessoa em outra aba aparece para quem a vê", () => {
     const list = [
-      person({ userId: "me" }),
-      person({ userId: "u2", name: "Bia" }),
-      person({ userId: "u2", name: "Bia", cell: "x:1" }),
-      person({ userId: "u3", name: "Caio" }),
+      person({ tab: "t1", userId: "me" }),
+      person({ tab: "t2", userId: "me", cell: "x:1" }),
+      person({ tab: "t3", userId: "u2", name: "Bia" }),
     ];
-    const others = otherCollaborators(list, "me");
-    expect(others.map((o) => [o.userId, o.cell])).toEqual([
-      ["u2", "x:1"],
-      ["u3", null],
+    expect(otherTabs(list, "t1").map((o) => [o.tab, o.cell])).toEqual([
+      ["t2", "x:1"],
+      ["t3", null],
     ]);
+  });
+
+  it("nas bolinhas do topo cada pessoa aparece uma vez", () => {
+    const list = [person({ tab: "a", userId: "u2" }), person({ tab: "b", userId: "u2" }), person({ tab: "c", userId: "u3" })];
+    expect(uniqueUsers(list).map((o) => o.userId)).toEqual(["u2", "u3"]);
   });
 
   it("agrupa por célula e ignora quem não selecionou nenhuma", () => {

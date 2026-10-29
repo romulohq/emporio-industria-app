@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { colorFor, otherCollaborators, type Collaborator } from "@/lib/schedule/presence";
+import { colorFor, otherTabs, type Collaborator } from "@/lib/schedule/presence";
 import type { ScheduleCell, ScheduleWeek } from "@/lib/types/database.types";
 
 type Handlers = {
@@ -25,7 +25,7 @@ export function useScheduleRealtime(weekStart: string, me: Me, handlers: Handler
     handlersRef.current = handlers;
   });
 
-  const stateRef = useRef<Collaborator>({ userId: me.id, name: me.name, color: colorFor(me.id), cell: null, notes: false });
+  const stateRef = useRef<Collaborator>({ tab: "", userId: me.id, name: me.name, color: colorFor(me.id), cell: null, notes: false });
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
   const subscribedRef = useRef(false);
 
@@ -36,6 +36,7 @@ export function useScheduleRealtime(weekStart: string, me: Me, handlers: Handler
   useEffect(() => {
     const supabase = createClient();
     const tabKey = crypto.randomUUID();
+    stateRef.current = { ...stateRef.current, tab: tabKey };
     const channel = supabase.channel(`cronograma:${weekStart}`, { config: { presence: { key: tabKey } } });
     channelRef.current = channel;
 
@@ -56,7 +57,7 @@ export function useScheduleRealtime(weekStart: string, me: Me, handlers: Handler
       .on("postgres_changes", { event: "*", schema: "public", table: "schedule_items" }, () => handlersRef.current.onItemsChanged())
       .on("presence", { event: "sync" }, () => {
         const all = Object.values(channel.presenceState<Collaborator>()).flat();
-        setOthers(otherCollaborators(all, me.id));
+        setOthers(otherTabs(all, tabKey));
       })
       .subscribe((status) => {
         subscribedRef.current = status === "SUBSCRIBED";

@@ -1,6 +1,8 @@
 /** Quem está com o cronograma aberto e em qual célula: a cor e o nome que cada pessoa tem na tela dos outros. */
 
 export type Collaborator = {
+  /** cada aba aberta tem a sua: quem usa duas abas aparece nas duas, como no Google Planilhas */
+  tab: string;
   userId: string;
   name: string;
   color: string;
@@ -36,15 +38,15 @@ export function firstName(name: string | null | undefined): string {
   return first || "Alguém";
 }
 
-/** Pessoas distintas (a mesma pessoa com duas abas abertas aparece uma vez), sem a própria. */
-export function otherCollaborators(all: Collaborator[], myUserId: string): Collaborator[] {
+/** Todas as abas abertas, menos esta. */
+export function otherTabs(all: Collaborator[], myTab: string): Collaborator[] {
+  return all.filter((c) => c.tab !== myTab);
+}
+
+/** Uma entrada por pessoa (quem tem duas abas aparece uma vez nas bolinhas do topo). */
+export function uniqueUsers(collaborators: Collaborator[]): Collaborator[] {
   const byUser = new Map<string, Collaborator>();
-  for (const c of all) {
-    if (c.userId === myUserId) continue;
-    // com duas abas, vale a que está numa célula
-    const current = byUser.get(c.userId);
-    if (!current || (!current.cell && c.cell)) byUser.set(c.userId, c);
-  }
+  for (const c of collaborators) if (!byUser.has(c.userId)) byUser.set(c.userId, c);
   return [...byUser.values()];
 }
 

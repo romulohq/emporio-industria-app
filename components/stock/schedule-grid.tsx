@@ -23,7 +23,7 @@ import {
   type ScheduleSection,
 } from "@/lib/schedule/week";
 import { formatBrDate } from "@/lib/dates";
-import { firstName, groupByCell } from "@/lib/schedule/presence";
+import { firstName, groupByCell, uniqueUsers } from "@/lib/schedule/presence";
 import { useScheduleRealtime } from "@/components/stock/use-schedule-realtime";
 
 export type GridItem = { id: string; section: ScheduleSection; name: string };
@@ -111,6 +111,7 @@ export function ScheduleGrid({
   });
   const othersByCell = useMemo(() => groupByCell(realtime.others), [realtime.others]);
   const notesEditors = realtime.others.filter((o) => o.notes);
+  const people = uniqueUsers(realtime.others);
   const selectCell = realtime.select;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -250,10 +251,10 @@ export function ScheduleGrid({
       <style>{printCss}</style>
 
       <div className="flex flex-wrap items-center justify-end gap-2 print:hidden">
-        {realtime.others.length > 0 && (
+        {people.length > 0 && (
           <div className="mr-auto flex items-center gap-2" aria-label="Quem está com o cronograma aberto">
             <div className="flex -space-x-1.5">
-              {realtime.others.map((o) => (
+              {people.map((o) => (
                 <span
                   key={o.userId}
                   title={`${o.name} está nesta semana`}
@@ -265,7 +266,11 @@ export function ScheduleGrid({
               ))}
             </div>
             <span className="text-xs text-neutral-500">
-              {realtime.others.length === 1 ? `${firstName(realtime.others[0].name)} também está aqui` : `${realtime.others.length} pessoas também estão aqui`}
+              {people.length === 1
+                ? people[0].userId === me.id
+                  ? "Você tem outra aba aberta nesta semana"
+                  : `${firstName(people[0].name)} também está aqui`
+                : `${people.length} pessoas também estão aqui`}
             </span>
           </div>
         )}
@@ -529,7 +534,7 @@ export function ScheduleGrid({
           Observações
           {notesEditors.map((o) => (
             <span
-              key={o.userId}
+              key={o.tab}
               className="ml-2 rounded px-1.5 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-white print:hidden"
               style={{ backgroundColor: o.color }}
             >
