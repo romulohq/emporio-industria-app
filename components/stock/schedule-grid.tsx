@@ -23,6 +23,8 @@ import {
   type ScheduleSection,
 } from "@/lib/schedule/week";
 import { formatBrDate } from "@/lib/dates";
+import { firstName, groupByCell } from "@/lib/schedule/presence";
+import { useScheduleRealtime } from "@/components/stock/use-schedule-realtime";
 
 export type GridItem = { id: string; section: ScheduleSection; name: string };
 
@@ -51,6 +53,7 @@ export function ScheduleGrid({
   initialHolidays,
   initialNotes,
   canEdit,
+  me,
 }: {
   weekStart: string;
   dates: string[];
@@ -59,6 +62,7 @@ export function ScheduleGrid({
   initialHolidays: number[];
   initialNotes: string;
   canEdit: boolean;
+  me: { id: string; name: string };
 }) {
   const router = useRouter();
   const [cells, setCells] = useState(initialCells);
@@ -81,6 +85,40 @@ export function ScheduleGrid({
   }
   const [, startTransition] = useTransition();
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // ao vivo: o que os outros marcam aparece na hora, e cada pessoa tem uma cor e um nome na célula que está usando
+  const notesFocused = useRef(false);
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(refreshTimer.current), []);
+  const realtime = useScheduleRealtime(weekStart, me, {
+    onCell: (itemId, weekday, label) =>
+      setCells((prev) => {
+        const key = `${itemId}:${weekday}`;
+        if ((prev[key] ?? null) === label) return prev;
+        const next = { ...prev };
+        if (label) next[key] = label;
+        else delete next[key];
+        return next;
+      }),
+    onWeek: (week) => {
+      setHolidays(week.holidays);
+      if (!notesFocused.current) setNotes(week.notes);
+    },
+    onItemsChanged: () => {
+      clearTimeout(refreshTimer.current);
+      refreshTimer.current = setTimeout(() => router.refresh(), 400);
+    },
+  });
+  const othersByCell = useMemo(() => groupByCell(realtime.others), [realtime.others]);
+  const notesEditors = realtime.others.filter((o) => o.notes);
+  const selectCell = realtime.select;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") selectCell(null);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [selectCell]);
 
   // which blocks go to the printer: the print button opens a small chooser (all blocks by default)
   const [printOpen, setPrintOpen] = useState(false);
@@ -198,6 +236,7 @@ export function ScheduleGrid({
     const rect = e.currentTarget.getBoundingClientRect();
     const width = 176;
     setCustom("");
+    selectCell(`${itemId}:${weekday}`);
     setMenu({
       itemId,
       weekday,
@@ -211,6 +250,25 @@ export function ScheduleGrid({
       <style>{printCss}</style>
 
       <div className="flex flex-wrap items-center justify-end gap-2 print:hidden">
+        {realtime.others.length > 0 && (
+          <div className="mr-auto flex items-center gap-2" aria-label="Quem está com o cronograma aberto">
+            <div className="flex -space-x-1.5">
+              {realtime.others.map((o) => (
+                <span
+                  key={o.userId}
+                  title={`${o.name} está nesta semana`}
+                  className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white text-[10px] font-bold uppercase text-white"
+                  style={{ backgroundColor: o.color }}
+                >
+                  {firstName(o.name).charAt(0)}
+                </span>
+              ))}
+            </div>
+            <span className="text-xs text-neutral-500">
+              {realtime.others.length === 1 ? `${firstName(realtime.others[0].name)} também está aqui` : `${realtime.others.length} pessoas também estão aqui`}
+            </span>
+          </div>
+        )}
         {canEdit && !hasCells && (
           <button
             type="button"
@@ -401,6 +459,7 @@ export function ScheduleGrid({
                     <td className="px-3 py-1 text-neutral-900 print:py-px">
                       {editing ? (
                         <EditableName
+                          key={`${item.id}:${item.name}`}
                           item={item}
                           isFirst={index === 0}
                           isLast={index === section.items.length - 1}
@@ -413,11 +472,26 @@ export function ScheduleGrid({
                     {SCHEDULE_WEEKDAYS.map((d) => {
                       const label = cells[`${item.id}:${d.n}`];
                       const isHoliday = holidays.includes(d.n);
+                      const here = othersByCell.get(`${item.id}:${d.n}`);
                       return (
                         <td
                           key={d.n}
-                          className={`border-l border-neutral-100 px-1 py-0.5 text-center print:border-neutral-200 print:px-0.5 print:py-px ${isHoliday ? "bg-neutral-100 print:bg-neutral-200" : ""}`}
+                          className={`relative border-l border-neutral-100 px-1 py-0.5 text-center print:border-neutral-200 print:px-0.5 print:py-px ${isHoliday ? "bg-neutral-100 print:bg-neutral-200" : ""}`}
                         >
+                          {here && (
+                            <span
+                              aria-hidden
+                              className="pointer-events-none absolute inset-0 z-10 rounded-[3px] border-2 print:hidden"
+                              style={{ borderColor: here[0].color }}
+                            >
+                              <span
+                                className="absolute -top-[17px] -left-0.5 flex max-w-[140%] items-center whitespace-nowrap rounded-t-[3px] px-1.5 text-[10px] font-semibold leading-[15px] text-white"
+                                style={{ backgroundColor: here[0].color }}
+                              >
+                                {here.map((c) => firstName(c.name)).join(", ")}
+                              </span>
+                            </span>
+                          )}
                           {isHoliday ? (
                             <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400 print:text-[8px] print:text-neutral-500">feriado</span>
                           ) : (
@@ -453,13 +527,30 @@ export function ScheduleGrid({
       <section className="rounded-lg border border-neutral-200 bg-white p-3 print:break-inside-avoid print:rounded-md print:border-neutral-300 print:bg-neutral-50">
         <label htmlFor="schedule-notes" className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400 print:text-[9px] print:text-orange-700">
           Observações
+          {notesEditors.map((o) => (
+            <span
+              key={o.userId}
+              className="ml-2 rounded px-1.5 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-white print:hidden"
+              style={{ backgroundColor: o.color }}
+            >
+              {firstName(o.name)} está escrevendo
+            </span>
+          ))}
         </label>
         {canEdit ? (
           <textarea
             id="schedule-notes"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            onBlur={() => run(() => saveScheduleNotes({ week_start: weekStart, notes }))}
+            onFocus={() => {
+              notesFocused.current = true;
+              realtime.setTypingNotes(true);
+            }}
+            onBlur={() => {
+              notesFocused.current = false;
+              realtime.setTypingNotes(false);
+              run(() => saveScheduleNotes({ week_start: weekStart, notes }));
+            }}
             rows={3}
             className="mt-1 w-full resize-y rounded-md border border-neutral-200 px-2 py-1.5 text-base text-neutral-800 focus:border-orange-500 focus:outline-none sm:text-sm print:resize-none print:border-0 print:bg-transparent print:p-0 print:text-[10px]"
           />

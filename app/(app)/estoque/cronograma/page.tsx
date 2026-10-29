@@ -9,7 +9,7 @@ import { defaultWeekStart, weekDatesOf, weekStartOf } from "@/lib/schedule/week"
 import type { ScheduleCell, ScheduleItem, ScheduleWeek } from "@/lib/types/database.types";
 
 export default async function CronogramaPage({ searchParams }: { searchParams: Promise<{ semana?: string }> }) {
-  const { profile, sectors: mySectors } = await requireUser();
+  const { userId, email, profile, sectors: mySectors } = await requireUser();
   const { semana } = await searchParams;
   const weekStart =
     semana && /^\d{4}-\d{2}-\d{2}$/.test(semana) ? weekStartOf(semana) : defaultWeekStart(fortalezaDateISO());
@@ -83,6 +83,7 @@ export default async function CronogramaPage({ searchParams }: { searchParams: P
         initialHolidays={week?.holidays ?? []}
         initialNotes={week?.notes ?? previousWeek?.notes ?? ""}
         canEdit={canEdit}
+        me={{ id: userId, name: profile.full_name?.trim() || email?.split("@")[0] || "Alguém" }}
       />
     </div>
   );
