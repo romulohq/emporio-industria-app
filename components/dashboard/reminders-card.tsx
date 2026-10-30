@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Check, ListChecks, Plus, X } from "lucide-react";
+import { useRef, useState, useTransition } from "react";
+import { Check, ListChecks, Pencil, Plus, X } from "lucide-react";
 import {
   addReminder,
   clearDoneReminders,
   deleteReminder,
+  editReminder,
   setReminderDone,
   type Reminder,
 } from "@/app/(app)/dashboard/reminders-actions";
@@ -13,13 +14,17 @@ import { Card, CardContent, CardHeader, CardIcon, CardTitle } from "@/components
 
 const VISIBLE = 6;
 
-/** Personal checklist of the signed-in user: add with Enter, tick, delete, clear what is done. */
+/** Personal checklist of the signed-in user: add with Enter, edit, tick, delete, clear what is done. */
 export function RemindersCard({ initial }: { initial: Reminder[] }) {
   const [items, setItems] = useState<Reminder[]>(initial);
   const [text, setText] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  // Escape cancels: the blur that follows must not save
+  const skipSave = useRef(false);
 
   // open ones first, done ones at the bottom; each group keeps the order they were written in
   const ordered = [...items.filter((i) => !i.done), ...items.filter((i) => i.done)];
@@ -51,6 +56,32 @@ export function RemindersCard({ initial }: { initial: Reminder[] }) {
       if (result.error) {
         setError(result.error);
         setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, done: item.done } : i)));
+      }
+    });
+  }
+
+  function startEdit(item: Reminder) {
+    skipSave.current = false;
+    setDraft(item.text);
+    setEditingId(item.id);
+  }
+
+  function finishEdit(item: Reminder) {
+    if (skipSave.current) {
+      skipSave.current = false;
+      return;
+    }
+    setEditingId(null);
+    const value = draft.trim();
+    if (!value || value === item.text) return;
+    setError(null);
+    const previous = item.text;
+    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, text: value } : i)));
+    startTransition(async () => {
+      const result = await editReminder(item.id, value);
+      if (result.error) {
+        setError(result.error);
+        setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, text: previous } : i)));
       }
     });
   }
@@ -137,13 +168,44 @@ export function RemindersCard({ initial }: { initial: Reminder[] }) {
                 >
                   {item.done && <Check className="h-3 w-3" strokeWidth={3} />}
                 </button>
-                <span
-                  className={`min-w-0 flex-1 whitespace-pre-line break-words text-sm leading-snug ${
-                    item.done ? "text-neutral-400 line-through" : "text-neutral-800"
-                  }`}
+                {editingId === item.id ? (
+                  <input
+                    autoFocus
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onBlur={() => finishEdit(item)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      } else if (e.key === "Escape") {
+                        skipSave.current = true;
+                        setEditingId(null);
+                      }
+                    }}
+                    maxLength={300}
+                    aria-label="Editar lembrete"
+                    className="min-w-0 flex-1 rounded-md border border-orange-500 bg-white px-1.5 py-0.5 text-base leading-snug focus:outline-none sm:text-sm"
+                  />
+                ) : (
+                  <span
+                    onClick={() => startEdit(item)}
+                    title="Clique para editar"
+                    className={`min-w-0 flex-1 cursor-text whitespace-pre-line break-words text-sm leading-snug ${
+                      item.done ? "text-neutral-400 line-through" : "text-neutral-800"
+                    }`}
+                  >
+                    {item.text}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => startEdit(item)}
+                  aria-label="Editar lembrete"
+                  className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-neutral-300 opacity-0 hover:text-orange-600 focus:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100"
                 >
-                  {item.text}
-                </span>
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
                 <button
                   type="button"
                   onClick={() => remove(item)}
