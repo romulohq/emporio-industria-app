@@ -9,11 +9,6 @@ export const setCellSchema = z.object({
   label: z.string().trim().max(60),
 });
 
-export const toggleHolidaySchema = z.object({
-  week_start: weekStart,
-  weekday: z.number().int().min(1).max(5),
-});
-
 export const saveNotesSchema = z.object({
   week_start: weekStart,
   notes: z.string().max(2000),

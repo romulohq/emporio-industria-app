@@ -11,7 +11,6 @@ import {
   renameScheduleItem,
   saveScheduleNotes,
   setScheduleCell,
-  toggleScheduleHoliday,
   type ScheduleResult,
 } from "@/app/(app)/estoque/cronograma/actions";
 import {
@@ -50,7 +49,6 @@ export function ScheduleGrid({
   dates,
   items,
   initialCells,
-  initialHolidays,
   initialNotes,
   canEdit,
   me,
@@ -59,14 +57,12 @@ export function ScheduleGrid({
   dates: string[];
   items: GridItem[];
   initialCells: Record<string, string>;
-  initialHolidays: number[];
   initialNotes: string;
   canEdit: boolean;
   me: { id: string; name: string };
 }) {
   const router = useRouter();
   const [cells, setCells] = useState(initialCells);
-  const [holidays, setHolidays] = useState(initialHolidays);
   const [notes, setNotes] = useState(initialNotes);
   const [editing, setEditing] = useState(false);
   const [menu, setMenu] = useState<MenuState | null>(null);
@@ -101,7 +97,6 @@ export function ScheduleGrid({
         return next;
       }),
     onWeek: (week) => {
-      setHolidays(week.holidays);
       if (!notesFocused.current) setNotes(week.notes);
     },
     onItemsChanged: () => {
@@ -221,15 +216,6 @@ export function ScheduleGrid({
           else delete next[key];
           return next;
         })
-    );
-  }
-
-  function toggleHoliday(weekday: number) {
-    const was = holidays.includes(weekday);
-    setHolidays((prev) => (was ? prev.filter((d) => d !== weekday) : [...prev, weekday]));
-    run(
-      () => toggleScheduleHoliday({ week_start: weekStart, weekday }),
-      () => setHolidays((prev) => (was ? [...prev, weekday] : prev.filter((d) => d !== weekday)))
     );
   }
 
@@ -442,18 +428,9 @@ export function ScheduleGrid({
                     </button>
                   </th>
                   {SCHEDULE_WEEKDAYS.map((d, i) => (
-                    <th key={d.n} className={`group w-[14%] px-2 py-1.5 text-center print:py-1 ${style.day}`}>
+                    <th key={d.n} className={`w-[14%] px-2 py-1.5 text-center print:py-1 ${style.day}`}>
                       <div className="text-[11px] font-bold uppercase text-neutral-800 print:text-[9px]">{d.label}</div>
                       <div className="text-[10px] font-normal text-neutral-500 print:text-[8px] print:text-neutral-600">{formatBrDate(dates[i])}</div>
-                      {canEdit && (
-                        <button
-                          type="button"
-                          onClick={() => toggleHoliday(d.n)}
-                          className="mt-0.5 text-[10px] font-medium text-neutral-500 opacity-0 transition-opacity hover:text-orange-700 focus:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100 print:hidden"
-                        >
-                          {holidays.includes(d.n) ? "desmarcar feriado" : "feriado"}
-                        </button>
-                      )}
                     </th>
                   ))}
                 </tr>
@@ -476,12 +453,11 @@ export function ScheduleGrid({
                     </td>
                     {SCHEDULE_WEEKDAYS.map((d) => {
                       const label = cells[`${item.id}:${d.n}`];
-                      const isHoliday = holidays.includes(d.n);
                       const here = othersByCell.get(`${item.id}:${d.n}`);
                       return (
                         <td
                           key={d.n}
-                          className={`relative border-l border-neutral-100 px-1 py-0.5 text-center print:border-neutral-200 print:px-0.5 print:py-px ${isHoliday ? "bg-neutral-100 print:bg-neutral-200" : ""}`}
+                          className={`relative border-l border-neutral-100 px-1 py-0.5 text-center print:border-neutral-200 print:px-0.5 print:py-px`}
                         >
                           {here && (
                             <span
@@ -497,20 +473,16 @@ export function ScheduleGrid({
                               </span>
                             </span>
                           )}
-                          {isHoliday ? (
-                            <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400 print:text-[8px] print:text-neutral-500">feriado</span>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled={!canEdit}
-                              onClick={(e) => openMenu(e, item.id, d.n)}
-                              className={`min-h-6 w-full rounded px-1 py-0.5 text-[11px] font-semibold uppercase print:min-h-0 print:text-[8.5px] print:leading-tight ${
-                                label ? TONE[labelTone(label)] : canEdit ? "text-transparent hover:bg-neutral-100 hover:text-neutral-300 print:hover:bg-transparent print:hover:text-transparent" : "text-transparent"
-                              }`}
-                            >
-                              {label ?? "+"}
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            disabled={!canEdit}
+                            onClick={(e) => openMenu(e, item.id, d.n)}
+                            className={`min-h-6 w-full rounded px-1 py-0.5 text-[11px] font-semibold uppercase print:min-h-0 print:text-[8.5px] print:leading-tight ${
+                              label ? TONE[labelTone(label)] : canEdit ? "text-transparent hover:bg-neutral-100 hover:text-neutral-300 print:hover:bg-transparent print:hover:text-transparent" : "text-transparent"
+                            }`}
+                          >
+                            {label ?? "+"}
+                          </button>
                         </td>
                       );
                     })}
@@ -572,7 +544,6 @@ export function ScheduleGrid({
           <span className="rounded bg-amber-200 px-1.5 py-0.5 font-semibold uppercase text-amber-900">Preparos</span>
           <span className="rounded bg-sky-500 px-1.5 py-0.5 font-semibold uppercase text-white">Descongelar</span>
           <span className="rounded bg-neutral-200 px-1.5 py-0.5 font-semibold uppercase text-neutral-700">Outro</span>
-          <span className="rounded bg-neutral-300 px-1.5 py-0.5 font-semibold uppercase text-neutral-600">Feriado</span>
         </div>
         <span>Impresso em {printedAt}</span>
       </div>

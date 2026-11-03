@@ -80,7 +80,6 @@ export default async function CronogramaPage({ searchParams }: { searchParams: P
         dates={dates}
         items={gridItems}
         initialCells={cellMap}
-        initialHolidays={week?.holidays ?? []}
         initialNotes={week?.notes ?? previousWeek?.notes ?? ""}
         canEdit={canEdit}
         me={{ id: userId, name: profile.full_name?.trim() || email?.split("@")[0] || "Alguém" }}

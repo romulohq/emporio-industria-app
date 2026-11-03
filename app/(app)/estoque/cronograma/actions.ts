@@ -12,7 +12,6 @@ import {
   renameItemSchema,
   saveNotesSchema,
   setCellSchema,
-  toggleHolidaySchema,
 } from "@/lib/validations/schedule";
 
 export type ScheduleResult = { error?: string; ok?: boolean };
@@ -61,28 +60,6 @@ export async function setScheduleCell(input: unknown): Promise<ScheduleResult> {
   return { ok: true };
 }
 
-export async function toggleScheduleHoliday(input: unknown): Promise<ScheduleResult> {
-  await requireUser();
-  const parsed = toggleHolidaySchema.safeParse(input);
-  if (!parsed.success) return { error: "Dados inválidos." };
-  const { week_start, weekday } = parsed.data;
-
-  const supabase = await createClient();
-  const week = await ensureWeek(supabase, week_start);
-  if (!week) return { error: NO_ACCESS };
-
-  const holidays: number[] = week.holidays ?? [];
-  const next = holidays.includes(weekday) ? holidays.filter((d) => d !== weekday) : [...holidays, weekday].sort();
-  const { error } = await supabase
-    .from("schedule_weeks")
-    .update({ holidays: next, updated_at: new Date().toISOString() })
-    .eq("week_start", week_start);
-  if (error) return { error: NO_ACCESS };
-
-  revalidatePath(PATH);
-  return { ok: true };
-}
-
 export async function saveScheduleNotes(input: unknown): Promise<ScheduleResult> {
   await requireUser();
   const parsed = saveNotesSchema.safeParse(input);
@@ -101,7 +78,7 @@ export async function saveScheduleNotes(input: unknown): Promise<ScheduleResult>
   return { ok: true };
 }
 
-/** Copies last week's marks into an empty week (holidays are not copied: they are specific to a date). */
+/** Copies last week's marks into an empty week. */
 export async function copyPreviousScheduleWeek(input: unknown): Promise<ScheduleResult> {
   const { userId } = await requireUser();
   const parsed = copyWeekSchema.safeParse(input);

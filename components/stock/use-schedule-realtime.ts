@@ -8,14 +8,14 @@ import type { ScheduleCell, ScheduleWeek } from "@/lib/types/database.types";
 type Handlers = {
   /** label null = a marcação foi limpa */
   onCell: (itemId: string, weekday: number, label: string | null) => void;
-  onWeek: (week: { holidays: number[]; notes: string }) => void;
+  onWeek: (week: { notes: string }) => void;
   onItemsChanged: () => void;
 };
 
 type Me = { id: string; name: string };
 
 /**
- * Cronograma ao vivo: recebe as mudanças que os outros fazem (marcações, feriados, observações, lista de
+ * Cronograma ao vivo: recebe as mudanças que os outros fazem (marcações, observações, lista de
  * produtos) e diz quem está com a semana aberta e em qual célula (como no Google Planilhas).
  */
 export function useScheduleRealtime(weekStart: string, me: Me, handlers: Handlers) {
@@ -52,7 +52,7 @@ export function useScheduleRealtime(weekStart: string, me: Me, handlers: Handler
       })
       .on<ScheduleWeek>("postgres_changes", { event: "*", schema: "public", table: "schedule_weeks", filter: `week_start=eq.${weekStart}` }, (payload) => {
         if (payload.eventType === "DELETE") return;
-        handlersRef.current.onWeek({ holidays: payload.new.holidays ?? [], notes: payload.new.notes ?? "" });
+        handlersRef.current.onWeek({ notes: payload.new.notes ?? "" });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "schedule_items" }, () => handlersRef.current.onItemsChanged())
       .on("presence", { event: "sync" }, () => {
