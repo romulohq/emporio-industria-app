@@ -101,9 +101,22 @@ export function RecipeEditor({
     setMessage(null);
     setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
   }
-  function add(kind: DraftLine["kind"]) {
+  function add(kind: DraftLine["kind"]): string {
     setMessage(null);
-    setLines((prev) => [...prev, { key: nextKey(), kind, name: "", subproductId: "", quantity: "", unit: "kg" }]);
+    const key = nextKey();
+    setLines((prev) => [...prev, { key, kind, name: "", subproductId: "", quantity: "", unit: "kg" }]);
+    return key;
+  }
+  function focusIngredient(key: string) {
+    requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-line-name="${key}"]`)?.focus());
+  }
+  /** Enter in the quantity or unit of a complete line: go to the next line, or start a new one after the last. */
+  function enterOnLine(e: React.KeyboardEvent, line: DraftLine) {
+    if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+    e.preventDefault();
+    if (!canEdit || !(toNumber(line.quantity) > 0) || line.unit.trim() === "") return;
+    const next = lines[lines.findIndex((l) => l.key === line.key) + 1];
+    focusIngredient(next ? next.key : add("raw"));
   }
   function remove(key: string) {
     setMessage(null);
@@ -433,6 +446,7 @@ export function RecipeEditor({
                         update(line.key, { name: e.target.value, ...(match && !line.quantity ? { unit: match.unit } : {}) });
                       }}
                       list="recipe-raw-materials"
+                      data-line-name={line.key}
                       placeholder="Ingrediente (digite para buscar ou cadastrar)"
                       aria-label="Ingrediente"
                       disabled={!canEdit}
@@ -442,6 +456,7 @@ export function RecipeEditor({
                     <input
                       value={line.name}
                       onChange={(e) => update(line.key, { name: e.target.value })}
+                      data-line-name={line.key}
                       placeholder="Insumo"
                       aria-label="Insumo"
                       disabled={!canEdit}
@@ -459,6 +474,7 @@ export function RecipeEditor({
                           const sp = subproducts.find((s) => s.id === e.target.value);
                           update(line.key, { subproductId: e.target.value, ...(sp && !line.quantity ? { unit: sp.unit } : {}) });
                         }}
+                        data-line-name={line.key}
                         aria-label="Subproduto"
                         disabled={!canEdit}
                         className={field}
@@ -475,6 +491,7 @@ export function RecipeEditor({
                   <input
                     value={line.quantity}
                     onChange={(e) => update(line.key, { quantity: e.target.value })}
+                    onKeyDown={(e) => enterOnLine(e, line)}
                     inputMode="decimal"
                     placeholder="Qtd."
                     aria-label="Quantidade"
@@ -484,6 +501,7 @@ export function RecipeEditor({
                   <input
                     value={line.unit}
                     onChange={(e) => update(line.key, { unit: e.target.value })}
+                    onKeyDown={(e) => enterOnLine(e, line)}
                     list="recipe-units"
                     aria-label="Unidade"
                     disabled={!canEdit}
