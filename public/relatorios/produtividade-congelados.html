@@ -256,7 +256,7 @@ function viewGeral(){
   const ms=msOf(S.month),pv=pvIdx(),pms=pv==null?null:[pv],tt=(a,b)=>S.pd?b:a;
   const cmp=meas=>pms?dlt(sv(R,meas,ms),sv(R,meas,pms),'vs '+MFULL[pv]):prevNote();
   const nI=uniq(R,ms,'c'),nD=uniq(R,ms,'d');
-  const kp=[tile(tt('Ordens de produção','Ordens por dia'),fv(sv(R,'o',ms)),cmp('o')),
+  const kp=[
     tile(tt('Unidades produzidas','Unidades por dia'),fv(sv(R,'UNID',ms)),cmp('UNID')),
     tile(tt('Quilos produzidos','Quilos por dia'),fv(sv(R,'KG',ms)),cmp('KG')),
     tile('Produtos em produção',`${nI}<small style="font-size:14px;color:var(--muted)"> de ${Object.keys(P).length}</small>`,pms?dif(nI,uniq(R,pms,'c'),'produtos'):pn0()),
@@ -319,9 +319,8 @@ function viewSetor(){
   const s=S.tab,col=sc(s),ms=msOf(S.month),pv=pvIdx(),pms=pv==null?null:[pv],rs=RS[s],mm=sectorMeasures(s),um=S.um,tt=(a,b)=>S.pd?b:a;
   const cods=Object.keys(P).filter(c=>P[c].s==s);
   const cmp=meas=>pms?dlt(sv(rs,meas,ms),sv(rs,meas,pms),'vs '+MFULL[pv]):prevNote();
-  const share=val(rs,'o',ms)/val(R,'o',ms)*100;
   const nI=uniq(rs,ms,'c'),nD=uniq(rs,ms,'d');
-  const kp=[tile(tt('Ordens de produção','Ordens por dia'),fv(sv(rs,'o',ms)),`${nf1.format(share)}% das ordens da fábrica`+(pms?' · '+dlt(sv(rs,'o',ms),sv(rs,'o',pms),'vs '+MFULL[pv]):'')),
+  const kp=[
     mm.UNID?tile(tt('Unidades produzidas','Unidades por dia'),fv(sv(rs,'UNID',ms)),cmp('UNID')):'',mm.KG?tile(tt('Quilos produzidos','Quilos por dia'),fv(sv(rs,'KG',ms)),cmp('KG')):'',
     tile('Produtos em produção',`${nI}<small style="font-size:14px;color:var(--muted)"> de ${cods.length}</small>`,pms?dif(nI,uniq(rs,pms,'c'),'produtos'):pn0()),
     tile('Dias com produção',nD,pms?dif(nD,uniq(rs,pms,'d'),'dias'):pn0())].join('');
