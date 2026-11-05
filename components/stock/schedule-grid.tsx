@@ -448,6 +448,13 @@ export function ScheduleGrid({
         </div>
       </div>
 
+      {frozen && (
+        <p className="text-xs text-neutral-500 print:hidden">
+          Coluna congelada: arraste a barra de rolagem que fica embaixo de cada setor (ou use Shift + roda do mouse) para
+          mover os dias até perto da coluna dos produtos.
+        </p>
+      )}
+
       {bySection.map((section) => {
         const style = SECTION_STYLE[section.key];
         return (
@@ -459,7 +466,7 @@ export function ScheduleGrid({
             }}
             onScroll={(e) => syncScroll(e.currentTarget)}
             className={`${
-              frozen ? "overflow-x-scroll [scrollbar-width:thin]" : "overflow-x-auto"
+              frozen ? "overflow-x-scroll [scrollbar-color:#a3a3a3_#f5f5f5]" : "overflow-x-auto"
             } rounded-lg border border-neutral-200 bg-white print:break-inside-avoid print:overflow-visible print:rounded-md print:border-neutral-300 ${
               printSections.has(section.key) ? "" : "print:hidden"
             }`}
@@ -515,7 +522,7 @@ export function ScheduleGrid({
                       <div className="text-[10px] font-normal text-neutral-500 print:text-[8px] print:text-neutral-600">{formatBrDate(dates[i])}</div>
                     </th>
                   ))}
-                  {frozen && <th aria-hidden className={`print:hidden ${style.day}`} />}
+                  {frozen && <th aria-hidden className="bg-white print:hidden" />}
                 </tr>
               </thead>
               <tbody className={collapsed.has(section.key) ? "hidden print:table-row-group" : undefined}>
@@ -569,7 +576,7 @@ export function ScheduleGrid({
                         </td>
                       );
                     })}
-                    {frozen && <td aria-hidden className="border-l border-neutral-100 print:hidden" />}
+                    {frozen && <td aria-hidden className="print:hidden" />}
                   </tr>
                 ))}
                 {editing && (
