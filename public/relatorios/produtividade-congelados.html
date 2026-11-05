@@ -139,17 +139,37 @@ tr.off td{opacity:.6}
   html,body{background:#fff}
   body{padding:0}
   .print-btn,#busca{display:none!important}
-  #printmeta{display:block;font-size:12px;color:var(--ink2);text-align:right;margin:-6px 0 -6px}
   .panel,.tile,.mcard,.dcard,.pc,details.notes,.mv li,.cols2>div,.cols3>div{break-inside:avoid}
   .panel,.tile,.mcard,.pc,details.notes,header{box-shadow:none}
   .tw{overflow:visible}
   tr{break-inside:avoid}
-  /* a folha em pé é estreita: cartões de resumo em 2 colunas e tabelas sem largura mínima, com quebra de linha */
-  .tiles{grid-template-columns:repeat(2,1fr)}
+  /* a folha em pé é estreita: tabelas sem largura mínima, com quebra de linha */
   table,table.mt{min-width:0}
   th,td{padding:5px 4px;font-size:11px;white-space:normal}
-  .panel{padding:14px}
 }
+/* Layout do papel: vale enquanto a impressão é preparada (classe "printing", posta antes dos gráficos serem medidos),
+   para os gráficos serem desenhados já no tamanho final. Título simples, resumo compacto e gráficos logo na 1ª folha. */
+html.printing header{background:none;box-shadow:none;color:var(--ink);padding:0 0 8px;border-radius:0;border-bottom:1px solid var(--line)}
+html.printing header::before,html.printing header::after{display:none}
+html.printing .logo{display:none}
+html.printing h1{color:var(--ink);font-size:20px;letter-spacing:-.01em}
+html.printing .sub{color:var(--muted);font-size:11px;margin-top:2px}
+html.printing #printmeta{display:block;font-size:11px;color:var(--muted);margin:-6px 0 0}
+html.printing #tabs,html.printing .bar{display:none}
+html.printing .wrap,html.printing #view{gap:10px!important}
+html.printing .tiles{grid-template-columns:repeat(4,1fr);gap:8px}
+html.printing .tile{padding:8px 10px;border-radius:10px}
+html.printing .tile::before,html.printing .tile::after{display:none}
+html.printing .tile .lbl{font-size:9px}
+html.printing .tile .val{font-size:20px;margin:0}
+html.printing .tile .dl{font-size:10px}
+html.printing .panel{padding:12px}
+html.printing h2{font-size:14px}
+html.printing .hint{font-size:11px;margin-bottom:6px}
+html.printing .mom-grid{grid-template-columns:repeat(2,1fr);gap:8px}
+html.printing .mcard{padding:10px 10px 6px}
+html.printing .mbox{height:150px}
+html.printing .dbox{height:170px}
 </style>
 <div class="wrap">
 <header>
@@ -398,6 +418,7 @@ function prePrint(){
   document.getElementById('printmeta').textContent=`${where} · Período: ${MLX[S.month]} · Valores: ${S.pd?'Média por dia':'Total'} · Impresso em ${dt}`;
   const notes=document.querySelector('details.notes');
   if(notes){notesWereOpen=notes.open;notes.open=true}
+  document.documentElement.classList.add('printing');
   document.body.style.width=PRINT_WIDTH+'px';document.body.style.padding='0';
   Object.values(charts).forEach(c=>c.resize());
 }
@@ -405,6 +426,7 @@ function postPrint(){
   if(!printing)return;printing=false;
   const notes=document.querySelector('details.notes');
   if(notes)notes.open=notesWereOpen;
+  document.documentElement.classList.remove('printing');
   document.body.style.width='';document.body.style.padding='';
   Object.values(charts).forEach(c=>c.resize());
 }
