@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, Check, ChevronRight, Copy, Pencil, Plus, Printer, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, ChevronRight, Copy, Pencil, Pin, PinOff, Plus, Printer, X } from "lucide-react";
 import {
   addScheduleItem,
   copyPreviousScheduleWeek,
@@ -28,6 +28,36 @@ import { useScheduleRealtime } from "@/components/stock/use-schedule-realtime";
 export type GridItem = { id: string; section: ScheduleSection; name: string };
 
 type MenuState = { itemId: string; weekday: number; top: number; left: number };
+
+const FREEZE_KEY = "cronograma:coluna-congelada";
+const FREEZE_EVENT = "cronograma:coluna-congelada-mudou";
+
+// a escolha de congelar fica guardada neste aparelho; sem armazenamento (janela anônima etc.) vale até fechar a página
+let frozenInMemory = false;
+const readFrozen = () => {
+  try {
+    return localStorage.getItem(FREEZE_KEY) === "1";
+  } catch {
+    return frozenInMemory;
+  }
+};
+const writeFrozen = (value: boolean) => {
+  frozenInMemory = value;
+  try {
+    localStorage.setItem(FREEZE_KEY, value ? "1" : "0");
+  } catch {
+    // fica só na memória
+  }
+  window.dispatchEvent(new Event(FREEZE_EVENT));
+};
+const subscribeFrozen = (onChange: () => void) => {
+  window.addEventListener(FREEZE_EVENT, onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    window.removeEventListener(FREEZE_EVENT, onChange);
+    window.removeEventListener("storage", onChange);
+  };
+};
 
 const TONE: Record<LabelTone, string> = {
   produce: "bg-orange-100 text-orange-800 print:bg-orange-500 print:text-white",
@@ -81,6 +111,25 @@ export function ScheduleGrid({
   }
   const [, startTransition] = useTransition();
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // coluna dos produtos congelada, como no Google Planilhas: ela fica parada e os dias rolam de lado,
+  // cada setor com a sua barra (e as barras andam juntas).
+  const frozen = useSyncExternalStore(subscribeFrozen, readFrozen, () => false);
+  const toggleFrozen = () => writeFrozen(!frozen);
+  const scrollers = useRef(new Map<string, HTMLElement>());
+  const syncing = useRef(false);
+  function syncScroll(from: HTMLElement) {
+    if (!frozen || syncing.current) return;
+    syncing.current = true;
+    scrollers.current.forEach((el) => {
+      if (el !== from) el.scrollLeft = from.scrollLeft;
+    });
+    requestAnimationFrame(() => {
+      syncing.current = false;
+    });
+  }
+  // no celular a coluna fixa fica estreita (nomes em até 2 linhas) e cada dia tem largura própria para a barra andar
+  const frozenCell = frozen ? "sticky left-0 z-20 min-w-40 shadow-[inset_-2px_0_0_#d4d4d8] sm:min-w-0 print:static print:shadow-none" : "";
 
   // ao vivo: o que os outros marcam aparece na hora, e cada pessoa tem uma cor e um nome na célula que está usando
   const notesFocused = useRef(false);
@@ -407,28 +456,49 @@ export function ScheduleGrid({
         return (
           <section
             key={section.key}
-            className={`overflow-x-auto rounded-lg border border-neutral-200 bg-white print:break-inside-avoid print:overflow-visible print:rounded-md print:border-neutral-300 ${
+            ref={(el) => {
+              if (el) scrollers.current.set(section.key, el);
+              else scrollers.current.delete(section.key);
+            }}
+            onScroll={(e) => syncScroll(e.currentTarget)}
+            className={`${
+              frozen ? "overflow-x-scroll [scrollbar-width:thin]" : "overflow-x-auto"
+            } rounded-lg border border-neutral-200 bg-white print:break-inside-avoid print:overflow-visible print:rounded-md print:border-neutral-300 ${
               printSections.has(section.key) ? "" : "print:hidden"
             }`}
           >
-            <table className="w-full min-w-[640px] border-collapse text-left text-sm print:min-w-0 print:text-[10px]">
+            <table className={`w-full ${frozen ? "min-w-0 sm:min-w-[780px]" : "min-w-[640px]"} border-collapse text-left text-sm print:min-w-0 print:text-[10px]`}>
               <thead>
                 <tr>
-                  <th className={`px-3 py-2 text-xs font-bold uppercase tracking-wide text-neutral-900 print:py-1.5 print:text-[10px] print:tracking-widest print:text-white ${style.title}`}>
-                    <button
-                      type="button"
-                      onClick={() => toggleBlock(section.key)}
-                      aria-expanded={!collapsed.has(section.key)}
-                      className="flex items-center gap-1.5 uppercase"
-                    >
-                      <ChevronRight
-                        className={`h-3.5 w-3.5 transition-transform print:hidden ${collapsed.has(section.key) ? "" : "rotate-90"}`}
-                      />
-                      {section.label}
-                    </button>
+                  <th className={`px-3 py-2 text-xs font-bold uppercase tracking-wide text-neutral-900 print:py-1.5 print:text-[10px] print:tracking-widest print:text-white ${style.title} ${frozenCell}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleBlock(section.key)}
+                        aria-expanded={!collapsed.has(section.key)}
+                        className="flex items-center gap-1.5 uppercase"
+                      >
+                        <ChevronRight
+                          className={`h-3.5 w-3.5 transition-transform print:hidden ${collapsed.has(section.key) ? "" : "rotate-90"}`}
+                        />
+                        {section.label}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={toggleFrozen}
+                        aria-pressed={frozen}
+                        title={frozen ? "Descongelar a coluna dos produtos" : "Congelar a coluna dos produtos"}
+                        aria-label={frozen ? "Descongelar a coluna dos produtos" : "Congelar a coluna dos produtos"}
+                        className={`shrink-0 rounded p-0.5 transition-colors print:hidden ${
+                          frozen ? "bg-white/70 text-orange-700" : "text-neutral-500 hover:bg-white/60 hover:text-neutral-900"
+                        }`}
+                      >
+                        {frozen ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                      </button>
+                    </div>
                   </th>
                   {SCHEDULE_WEEKDAYS.map((d, i) => (
-                    <th key={d.n} className={`w-[14%] px-2 py-1.5 text-center print:py-1 ${style.day}`}>
+                    <th key={d.n} className={`${frozen ? "w-28 min-w-28 sm:w-[14%] sm:min-w-0" : "w-[14%]"} px-2 py-1.5 text-center print:py-1 ${style.day}`}>
                       <div className="text-[11px] font-bold uppercase text-neutral-800 print:text-[9px]">{d.label}</div>
                       <div className="text-[10px] font-normal text-neutral-500 print:text-[8px] print:text-neutral-600">{formatBrDate(dates[i])}</div>
                     </th>
@@ -438,7 +508,7 @@ export function ScheduleGrid({
               <tbody className={collapsed.has(section.key) ? "hidden print:table-row-group" : undefined}>
                 {section.items.map((item, index) => (
                   <tr key={item.id} className="break-inside-avoid border-t border-neutral-100 print:border-neutral-200 print:even:bg-neutral-50">
-                    <td className="px-3 py-1 text-neutral-900 print:py-px">
+                    <td className={`px-3 py-1 text-neutral-900 print:py-px ${frozen ? `${frozenCell} bg-white` : ""}`}>
                       {editing ? (
                         <EditableName
                           key={`${item.id}:${item.name}`}
