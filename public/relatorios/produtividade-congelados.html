@@ -132,8 +132,8 @@ tr.off td{opacity:.6}
 .print-btn:hover{border-color:var(--accent);color:var(--accent)}
 .print-btn:focus-visible{outline:2px solid var(--sage);outline-offset:2px}
 #printmeta{display:none}
-/* impressão: o que está na tela, em A4 deitado, com as cores e sem os controles que só servem para clicar */
-@page{size:A4 landscape;margin:8mm}
+/* impressão: o que está na tela, em A4 em pé, com as cores e sem os controles que só servem para clicar */
+@page{size:A4 portrait;margin:8mm}
 @media print{
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   html,body{background:#fff}
@@ -144,6 +144,11 @@ tr.off td{opacity:.6}
   .panel,.tile,.mcard,.pc,details.notes,header{box-shadow:none}
   .tw{overflow:visible}
   tr{break-inside:avoid}
+  /* a folha em pé é estreita: cartões de resumo em 2 colunas e tabelas sem largura mínima, com quebra de linha */
+  .tiles{grid-template-columns:repeat(2,1fr)}
+  table,table.mt{min-width:0}
+  th,td{padding:5px 4px;font-size:11px;white-space:normal}
+  .panel{padding:14px}
 }
 </style>
 <div class="wrap">
@@ -384,7 +389,7 @@ function viewSetor(){
 
 function render(){Chart.defaults.font.family=css('--f-body');Chart.defaults.color=css('--ink2');Object.keys(charts).forEach(kill);chrome();S.tab=='geral'?viewGeral():viewSetor()}
 /* ---------- impressão ---------- */
-const PRINT_WIDTH=1060; /* A4 deitado menos as margens, em px */
+const PRINT_WIDTH=730; /* A4 em pé menos as margens (194 mm), em px */
 let printing=false, notesWereOpen=false;
 function prePrint(){
   if(printing)return;printing=true;
