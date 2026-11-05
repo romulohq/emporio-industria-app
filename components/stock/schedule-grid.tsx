@@ -117,19 +117,16 @@ export function ScheduleGrid({
   const frozen = useSyncExternalStore(subscribeFrozen, readFrozen, () => false);
   const toggleFrozen = () => writeFrozen(!frozen);
   const scrollers = useRef(new Map<string, HTMLElement>());
-  const syncing = useRef(false);
+  // as barras dos setores andam juntas; só mexe nas que estão em outra posição, então não entra em ciclo
   function syncScroll(from: HTMLElement) {
-    if (!frozen || syncing.current) return;
-    syncing.current = true;
+    if (!frozen) return;
     scrollers.current.forEach((el) => {
-      if (el !== from) el.scrollLeft = from.scrollLeft;
-    });
-    requestAnimationFrame(() => {
-      syncing.current = false;
+      if (el !== from && el.scrollLeft !== from.scrollLeft) el.scrollLeft = from.scrollLeft;
     });
   }
-  // no celular a coluna fixa fica estreita (nomes em até 2 linhas) e cada dia tem largura própria para a barra andar
-  const frozenCell = frozen ? "sticky left-0 z-20 min-w-40 shadow-[inset_-2px_0_0_#d4d4d8] sm:min-w-0 print:static print:shadow-none" : "";
+  // congelada, a tabela tem larguras fixas (produtos, 5 dias e um espaço depois de sexta) para a barra sempre poder
+  // andar e encostar qualquer dia na coluna parada, mesmo numa tela larga onde os 5 dias já cabem
+  const frozenCell = frozen ? "sticky left-0 z-20 shadow-[inset_-2px_0_0_#d4d4d8] print:static print:shadow-none" : "";
 
   // ao vivo: o que os outros marcam aparece na hora, e cada pessoa tem uma cor e um nome na célula que está usando
   const notesFocused = useRef(false);
@@ -467,7 +464,22 @@ export function ScheduleGrid({
               printSections.has(section.key) ? "" : "print:hidden"
             }`}
           >
-            <table className={`w-full ${frozen ? "min-w-0 sm:min-w-[780px]" : "min-w-[640px]"} border-collapse text-left text-sm print:min-w-0 print:text-[10px]`}>
+            <table
+              className={`${
+                frozen
+                  ? "table-fixed w-[calc(10rem+60rem+60vw)] sm:w-[calc(24rem+60rem+60vw)] print:w-full print:table-auto"
+                  : "w-full min-w-[640px]"
+              } border-collapse text-left text-sm print:min-w-0 print:text-[10px]`}
+            >
+              {frozen && (
+                <colgroup>
+                  <col className="w-40 sm:w-[24rem] print:w-auto" />
+                  {SCHEDULE_WEEKDAYS.map((d) => (
+                    <col key={d.n} className="w-48 print:w-auto" />
+                  ))}
+                  <col className="w-[60vw] print:w-auto" />
+                </colgroup>
+              )}
               <thead>
                 <tr>
                   <th className={`px-3 py-2 text-xs font-bold uppercase tracking-wide text-neutral-900 print:py-1.5 print:text-[10px] print:tracking-widest print:text-white ${style.title} ${frozenCell}`}>
@@ -498,11 +510,12 @@ export function ScheduleGrid({
                     </div>
                   </th>
                   {SCHEDULE_WEEKDAYS.map((d, i) => (
-                    <th key={d.n} className={`${frozen ? "w-28 min-w-28 sm:w-[14%] sm:min-w-0" : "w-[14%]"} px-2 py-1.5 text-center print:py-1 ${style.day}`}>
+                    <th key={d.n} className={`w-[14%] px-2 py-1.5 text-center print:py-1 ${style.day}`}>
                       <div className="text-[11px] font-bold uppercase text-neutral-800 print:text-[9px]">{d.label}</div>
                       <div className="text-[10px] font-normal text-neutral-500 print:text-[8px] print:text-neutral-600">{formatBrDate(dates[i])}</div>
                     </th>
                   ))}
+                  {frozen && <th aria-hidden className={`print:hidden ${style.day}`} />}
                 </tr>
               </thead>
               <tbody className={collapsed.has(section.key) ? "hidden print:table-row-group" : undefined}>
@@ -556,11 +569,12 @@ export function ScheduleGrid({
                         </td>
                       );
                     })}
+                    {frozen && <td aria-hidden className="border-l border-neutral-100 print:hidden" />}
                   </tr>
                 ))}
                 {editing && (
                   <tr className="border-t border-neutral-100 print:hidden">
-                    <td colSpan={6} className="px-3 py-1.5">
+                    <td colSpan={frozen ? 7 : 6} className="px-3 py-1.5">
                       <AddItemForm section={section.key} run={run} />
                     </td>
                   </tr>
