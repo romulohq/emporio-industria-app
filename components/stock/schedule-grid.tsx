@@ -117,15 +117,23 @@ export function ScheduleGrid({
   const frozen = useSyncExternalStore(subscribeFrozen, readFrozen, () => false);
   const toggleFrozen = () => writeFrozen(!frozen);
   const scrollers = useRef(new Map<string, HTMLElement>());
-  // as barras dos setores andam juntas; só mexe nas que estão em outra posição, então não entra em ciclo
+  // as barras dos setores andam juntas, mas só a que a pessoa está usando (a que o ponteiro ou o dedo tocou por último)
+  // comanda as outras: o rolar das demais é só eco e é ignorado, para uma barra nunca puxar a outra de volta
+  const leader = useRef<HTMLElement | null>(null);
+  const takeLead = (e: React.SyntheticEvent<HTMLElement>) => {
+    leader.current = e.currentTarget;
+  };
   function syncScroll(from: HTMLElement) {
     if (!frozen) return;
+    if (leader.current && leader.current !== from) return;
+    leader.current = from;
     scrollers.current.forEach((el) => {
       if (el !== from && el.scrollLeft !== from.scrollLeft) el.scrollLeft = from.scrollLeft;
     });
   }
   // congelada, a tabela tem larguras fixas (produtos, 5 dias e um espaço depois de sexta) para a barra sempre poder
   // andar e encostar qualquer dia na coluna parada, mesmo numa tela larga onde os 5 dias já cabem
+  const rowLine = frozen ? "border-t border-neutral-100 print:border-t-0" : "";
   const frozenCell = frozen ? "sticky left-0 z-20 shadow-[inset_-2px_0_0_#d4d4d8] print:static print:shadow-none" : "";
 
   // ao vivo: o que os outros marcam aparece na hora, e cada pessoa tem uma cor e um nome na célula que está usando
@@ -465,6 +473,10 @@ export function ScheduleGrid({
               else scrollers.current.delete(section.key);
             }}
             onScroll={(e) => syncScroll(e.currentTarget)}
+            onPointerEnter={takeLead}
+            onPointerDown={takeLead}
+            onTouchStart={takeLead}
+            onWheel={takeLead}
             className={`${
               frozen ? "overflow-x-scroll [scrollbar-color:#a3a3a3_#f5f5f5]" : "overflow-x-auto"
             } rounded-lg border border-neutral-200 bg-white print:break-inside-avoid print:overflow-visible print:rounded-md print:border-neutral-300 ${
@@ -476,7 +488,9 @@ export function ScheduleGrid({
                 frozen
                   ? "table-fixed w-[calc(10rem+60rem+60vw)] sm:w-[calc(24rem+60rem+60vw)] print:w-full print:table-auto"
                   : "w-full min-w-[640px]"
-              } border-collapse text-left text-sm print:min-w-0 print:text-[10px]`}
+              } ${
+                frozen ? "border-separate border-spacing-0 print:border-collapse" : "border-collapse"
+              } text-left text-sm print:min-w-0 print:text-[10px]`}
             >
               {frozen && (
                 <colgroup>
@@ -528,7 +542,7 @@ export function ScheduleGrid({
               <tbody className={collapsed.has(section.key) ? "hidden print:table-row-group" : undefined}>
                 {section.items.map((item, index) => (
                   <tr key={item.id} className="break-inside-avoid border-t border-neutral-100 print:border-neutral-200 print:even:bg-neutral-50">
-                    <td className={`px-3 py-1 text-neutral-900 print:py-px ${frozen ? `${frozenCell} bg-white` : ""}`}>
+                    <td className={`px-3 py-1 text-neutral-900 print:py-px ${rowLine} ${frozen ? `${frozenCell} bg-white` : ""}`}>
                       {editing ? (
                         <EditableName
                           key={`${item.id}:${item.name}`}
@@ -547,7 +561,7 @@ export function ScheduleGrid({
                       return (
                         <td
                           key={d.n}
-                          className={`relative border-l border-neutral-100 px-1 py-0.5 text-center print:border-neutral-200 print:px-0.5 print:py-px`}
+                          className={`relative border-l border-neutral-100 ${rowLine} px-1 py-0.5 text-center print:border-neutral-200 print:px-0.5 print:py-px`}
                         >
                           {here && (
                             <span
@@ -576,7 +590,7 @@ export function ScheduleGrid({
                         </td>
                       );
                     })}
-                    {frozen && <td aria-hidden className="print:hidden" />}
+                    {frozen && <td aria-hidden className={`${rowLine} print:hidden`} />}
                   </tr>
                 ))}
                 {editing && (
