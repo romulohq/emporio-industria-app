@@ -107,11 +107,11 @@ table.mt .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margi
 .pc .top{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .pc .big{font-family:var(--f-display);font-size:22px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
 .pc .big small{font-size:12px;font-weight:500;color:var(--muted);margin-left:3px;font-family:var(--f-body)}
-.mini{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;align-items:end}
+.mini{display:grid;grid-template-columns:repeat(var(--nm,4),1fr);gap:6px;align-items:end}
 .mc{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;height:78px}
 .mc .bv{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
 .mc .bb{width:100%;border-radius:3px 3px 0 0;min-height:2px}
-.mls{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;font-size:10px;color:var(--muted);text-align:center}
+.mls{display:grid;grid-template-columns:repeat(var(--nm,4),1fr);gap:6px;font-size:10px;color:var(--muted);text-align:center}
 .chip{display:inline-block;font-size:11px;padding:1px 8px;border-radius:99px;background:var(--chip);color:var(--ink2);border:1px solid var(--line)}
 .chip.new{color:var(--good);border-color:var(--good);background:transparent}
 .chip.stop{color:var(--bad);border-color:var(--bad);background:transparent}
@@ -128,6 +128,23 @@ td .cd{display:block;font-size:11px;color:var(--muted);font-weight:400}
 tr.off td{opacity:.6}
 .spark{display:inline-flex;gap:2px;align-items:flex-end;height:20px;vertical-align:middle}
 .spark b{width:6px;border-radius:2px 2px 0 0;display:block}
+.print-btn{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:13px;font-weight:600;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink2);padding:6px 12px;cursor:pointer}
+.print-btn:hover{border-color:var(--accent);color:var(--accent)}
+.print-btn:focus-visible{outline:2px solid var(--sage);outline-offset:2px}
+#printmeta{display:none}
+/* impressão: o que está na tela, em A4 deitado, com as cores e sem os controles que só servem para clicar */
+@page{size:A4 landscape;margin:8mm}
+@media print{
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  html,body{background:#fff}
+  body{padding:0}
+  .print-btn,#busca{display:none!important}
+  #printmeta{display:block;font-size:12px;color:var(--ink2);text-align:right;margin:-6px 0 -6px}
+  .panel,.tile,.mcard,.dcard,.pc,details.notes,.mv li,.cols2>div,.cols3>div{break-inside:avoid}
+  .panel,.tile,.mcard,.pc,details.notes,header{box-shadow:none}
+  .tw{overflow:visible}
+  tr{break-inside:avoid}
+}
 </style>
 <div class="wrap">
 <header>
@@ -135,8 +152,9 @@ tr.off td{opacity:.6}
   <div><h1>Produtividade da Fábrica Congelados</h1>
   <p class="sub">Produção por setor e por produto, de junho em diante.</p></div>
 </header>
+<div id="printmeta"></div>
 <nav class="tabs" id="tabs" aria-label="Setor"></nav>
-<div class="bar"><span class="lb">Período</span><div class="seg" id="s-m" role="group" aria-label="Período"></div><span class="lb" style="margin-left:10px">Valores</span><div class="seg" id="s-pd" role="group" aria-label="Valores"></div></div>
+<div class="bar"><span class="lb">Período</span><div class="seg" id="s-m" role="group" aria-label="Período"></div><span class="lb" style="margin-left:10px">Valores</span><div class="seg" id="s-pd" role="group" aria-label="Valores"></div><button type="button" id="btn-print" class="print-btn" title="Imprimir o que está na tela"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Imprimir</button></div>
 <main id="view" class="wrap" style="gap:18px"></main>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -145,7 +163,7 @@ const D={"P":{"9000001":{"n":"Coxinha de Carne do Sol","d":"PI PAO FR C C SOL 10
 /* meses: Jun–Set vêm fixos no arquivo; os seguintes (Out em diante) entram das importações do ERP (ver boot no fim) */
 const MN=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'], MNF=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 let MK=[],NM=0,ML=[],MLX=[],MFULL=[];
-const setMonths=list=>{MK=list;NM=list.length;ML=list.map(k=>MN[+k.slice(5,7)-1]);MLX=[...ML,ML[0]+'–'+ML[NM-1]];MFULL=[...list.map(k=>MNF[+k.slice(5,7)-1]),MNF[+list[0].slice(5,7)-1]+' a '+MNF[+list[NM-1].slice(5,7)-1]]};
+const setMonths=list=>{MK=list;NM=list.length;document.documentElement.style.setProperty('--nm',NM);ML=list.map(k=>MN[+k.slice(5,7)-1]);MLX=[...ML,ML[0]+'–'+ML[NM-1]];MFULL=[...list.map(k=>MNF[+k.slice(5,7)-1]),MNF[+list[0].slice(5,7)-1]+' a '+MNF[+list[NM-1].slice(5,7)-1]]};
 setMonths(['2026-06','2026-07','2026-08','2026-09']);
 const MI=()=>MK.map((_,i)=>i);
 const SECT=['Folheados','Pães','Salgados','Cozinha'];
@@ -365,6 +383,30 @@ function viewSetor(){
 }
 
 function render(){Chart.defaults.font.family=css('--f-body');Chart.defaults.color=css('--ink2');Object.keys(charts).forEach(kill);chrome();S.tab=='geral'?viewGeral():viewSetor()}
+/* ---------- impressão ---------- */
+const PRINT_WIDTH=1060; /* A4 deitado menos as margens, em px */
+let printing=false, notesWereOpen=false;
+function prePrint(){
+  if(printing)return;printing=true;
+  const dt=new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Fortaleza',dateStyle:'short',timeStyle:'short'}).format(new Date());
+  const where=S.tab=='geral'?'Visão geral':S.tab;
+  document.getElementById('printmeta').textContent=`${where} · Período: ${MLX[S.month]} · Valores: ${S.pd?'Média por dia':'Total'} · Impresso em ${dt}`;
+  const notes=document.querySelector('details.notes');
+  if(notes){notesWereOpen=notes.open;notes.open=true}
+  document.body.style.width=PRINT_WIDTH+'px';document.body.style.padding='0';
+  Object.values(charts).forEach(c=>c.resize());
+}
+function postPrint(){
+  if(!printing)return;printing=false;
+  const notes=document.querySelector('details.notes');
+  if(notes)notes.open=notesWereOpen;
+  document.body.style.width='';document.body.style.padding='';
+  Object.values(charts).forEach(c=>c.resize());
+}
+window.addEventListener('beforeprint',prePrint);
+window.addEventListener('afterprint',postPrint);
+document.getElementById('btn-print').onclick=()=>{prePrint();setTimeout(()=>window.print(),80)};
+
 async function boot(){
   try{
     const res=await fetch('/api/erp/produtividade',{credentials:'same-origin',cache:'no-store'});
