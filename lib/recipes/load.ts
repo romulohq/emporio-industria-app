@@ -2,6 +2,7 @@ import "server-only";
 import type { createClient } from "@/lib/supabase/server";
 import type { RawMaterial, Recipe, RecipeItem, Subproduct } from "@/lib/types/database.types";
 import type { RecipeLine, SubproductRecipe } from "@/lib/recipes/tree";
+import { autoYield } from "@/lib/recipes/yield";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -44,11 +45,15 @@ export async function loadSubproducts(supabase: Supabase): Promise<{
   const out: Record<string, SubproductRecipe> = {};
   for (const sp of list) {
     const r = recipeBySp.get(sp.id);
+    const lines = r ? (itemsByRecipe.get(r.id) ?? []).map((i) => toLine(i, rawNames)) : [];
+    const typed = r?.yield_quantity != null ? Number(r.yield_quantity) : null;
+    // sem rendimento digitado vale a soma dos ingredientes; o que já foi digitado nunca é alterado
+    const auto = typed === null ? autoYield(lines) : null;
     out[sp.id] = {
       name: sp.name,
-      yieldQuantity: r?.yield_quantity != null ? Number(r.yield_quantity) : null,
-      yieldUnit: r?.yield_unit ?? "",
-      lines: r ? (itemsByRecipe.get(r.id) ?? []).map((i) => toLine(i, rawNames)) : [],
+      yieldQuantity: typed ?? auto?.quantity ?? null,
+      yieldUnit: auto ? auto.unit : (r?.yield_unit ?? ""),
+      lines,
     };
   }
   return { list, recipes: out };

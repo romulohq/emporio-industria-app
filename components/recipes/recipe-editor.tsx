@@ -8,6 +8,7 @@ import { saveRecipe } from "@/app/(app)/produtos/fichas/actions";
 import { RecipeTree } from "@/components/recipes/recipe-tree";
 import { RecipePrintSheet } from "@/components/recipes/recipe-print-sheet";
 import { buildTree, type RecipeLine, type SubproductRecipe } from "@/lib/recipes/tree";
+import { autoYield } from "@/lib/recipes/yield";
 
 type DraftLine = {
   key: string;
@@ -147,8 +148,13 @@ export function RecipeEditor({
     [lines, rawByName]
   );
 
-  const yieldNumber = yieldQuantity.trim() === "" ? null : toNumber(yieldQuantity);
-  const yieldText = yieldNumber && yieldNumber > 0 ? `${fmt(yieldNumber)} ${yieldUnit}`.trim() : null;
+  // rendimento digitado; sem ele vale a soma dos ingredientes (nada é gravado: a ficha segue "sem rendimento")
+  const manualYield = yieldQuantity.trim() === "" ? null : toNumber(yieldQuantity);
+  const auto = useMemo(() => autoYield(validLines), [validLines]);
+  const usingAuto = manualYield === null && auto !== null;
+  const yieldNumber = manualYield !== null ? manualYield : (auto?.quantity ?? null);
+  const effectiveYieldUnit = usingAuto ? "kg" : yieldUnit;
+  const yieldText = yieldNumber && yieldNumber > 0 ? `${fmt(yieldNumber)} ${effectiveYieldUnit}`.trim() : null;
   const tree = useMemo(
     () => buildTree(validLines, subRecipes, ownerSubproductId ? [ownerSubproductId] : []),
     [validLines, subRecipes, ownerSubproductId]
@@ -176,14 +182,14 @@ export function RecipeEditor({
   const factor =
     scaleValue.trim() !== "" && Number.isFinite(wanted) && wanted > 0 && baseQuantity ? wanted / baseQuantity : null;
   const appliedFactor = factor ?? 1;
-  const scaleUnit = scaleBase === "factor" ? "×" : scaleBase === "yield" ? yieldUnit : (baseLine?.unit ?? "");
+  const scaleUnit = scaleBase === "factor" ? "×" : scaleBase === "yield" ? effectiveYieldUnit : (baseLine?.unit ?? "");
   const scaleText =
     factor === null || factor === 1
       ? null
       : scaleBase === "factor"
         ? `fator ${fmt(factor)}×`
         : scaleBase === "yield"
-          ? `${fmt(wanted)} ${yieldUnit} de rendimento · fator ${fmt(factor)}×`
+          ? `${fmt(wanted)} ${effectiveYieldUnit} de rendimento · fator ${fmt(factor)}×`
           : `${fmt(wanted)} ${scaleUnit} de ${baseLine?.label} · fator ${fmt(factor)}×`;
 
   const scaledRows = useMemo(() => {
@@ -192,7 +198,7 @@ export function RecipeEditor({
     return nodes.map((node, i) => ({ node, baseQuantity: validLines[i].quantity }));
   }, [validLines, appliedFactor, subRecipes, ownerSubproductId]);
   const scaledYieldText =
-    yieldNumber && yieldNumber > 0 ? `${fmt(yieldNumber * appliedFactor)} ${yieldUnit}`.trim() : null;
+    yieldNumber && yieldNumber > 0 ? `${fmt(yieldNumber * appliedFactor)} ${effectiveYieldUnit}`.trim() : null;
 
   function save() {
     if (validLines.length !== lines.length) {
@@ -202,7 +208,7 @@ export function RecipeEditor({
       });
       return;
     }
-    if (yieldQuantity.trim() !== "" && !(yieldNumber && yieldNumber > 0)) {
+    if (yieldQuantity.trim() !== "" && !(manualYield && manualYield > 0)) {
       setMessage({ ok: false, text: "O rendimento precisa ser um número maior que zero." });
       return;
     }
@@ -211,7 +217,7 @@ export function RecipeEditor({
       const result = await saveRecipe({
         product_id: "productId" in owner ? owner.productId : null,
         subproduct_id: ownerSubproductId,
-        yield_quantity: yieldNumber,
+        yield_quantity: manualYield,
         yield_unit: yieldUnit.trim(),
         instructions,
         items: validLines.map((l) => ({
@@ -307,7 +313,7 @@ export function RecipeEditor({
               >
                 <option value="yield" disabled={!(yieldNumber && yieldNumber > 0)}>
                   {yieldNumber && yieldNumber > 0
-                    ? `Rendimento da receita (${fmt(yieldNumber)} ${yieldUnit})`.trim()
+                    ? `${usingAuto ? "Rendimento automático, soma dos ingredientes" : "Rendimento da receita"} (${fmt(yieldNumber)} ${effectiveYieldUnit})`.trim()
                     : "Rendimento da receita (informe na aba Ficha)"}
                 </option>
                 {baseOptions.map((o) => (
@@ -408,7 +414,7 @@ export function RecipeEditor({
                   setYieldQuantity(e.target.value);
                 }}
                 inputMode="decimal"
-                placeholder="Quantidade"
+                placeholder={auto ? `Automático: ${fmt(auto.quantity)}` : "Quantidade"}
                 aria-label="Rendimento da receita"
                 disabled={!canEdit}
                 className={field}
@@ -430,6 +436,15 @@ export function RecipeEditor({
               Quanto a receita abaixo produz. É com ele que a árvore calcula as quantidades de um subproduto usado em
               outra ficha.
             </p>
+            {usingAuto && auto && (
+              <p className="mt-1.5 rounded-md bg-orange-50 px-2.5 py-1.5 text-xs text-orange-900">
+                Rendimento não informado: vale a soma dos ingredientes, <b>{fmt(auto.quantity)} kg</b>
+                {auto.ignored > 0
+                  ? ` (${auto.ignored} ${auto.ignored === 1 ? "item em unidade ficou" : "itens em unidade ficaram"} fora da soma)`
+                  : ""}
+                . Litros contam como quilos. Digite um valor acima para usar outro.
+              </p>
+            )}
           </section>
 
           <section className="rounded-lg border border-neutral-200 bg-white p-4">
