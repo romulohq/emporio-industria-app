@@ -122,13 +122,17 @@ export function RecipePrintSheet({
         </tbody>
       </table>
 
-      {total && (
+      {(yieldText || total) && (
         <div className={`flex items-center justify-between rounded-xl bg-neutral-900 px-5 py-2.5 text-white ${d.gap}`}>
           <div>
             <p className="text-xs font-medium tracking-wide">Peso total da receita</p>
-            {total.partial && <p className="text-[9px] text-neutral-400">Soma dos insumos medidos em kg e g.</p>}
+            {!yieldText && total?.partial && (
+              <p className="text-[9px] text-neutral-400">Soma dos insumos medidos em kg e g.</p>
+            )}
           </div>
-          <p className="text-lg font-extrabold tabular-nums tracking-tight">{fmtQuantity(total.kg, "kg")} KG</p>
+          <p className="text-lg font-extrabold uppercase tabular-nums tracking-tight">
+            {yieldText ?? `${fmtQuantity(total!.kg, "kg")} KG`}
+          </p>
         </div>
       )}
 
