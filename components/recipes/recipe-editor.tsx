@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Calculator, ListTree, Plus, Printer, Trash2, Layers, Check } from "lucide-react";
+import { Calculator, ListTree, Plus, Printer, Trash2, Layers, Check, Package } from "lucide-react";
 import { saveRecipe } from "@/app/(app)/produtos/fichas/actions";
+import { createRawMaterial } from "@/app/(app)/produtos/materias-primas/actions";
 import { RecipeTree } from "@/components/recipes/recipe-tree";
 import { RecipePrintSheet } from "@/components/recipes/recipe-print-sheet";
 import { buildTree, type RecipeLine, type SubproductRecipe } from "@/lib/recipes/tree";
@@ -96,7 +97,54 @@ export function RecipeEditor({
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const rawByName = useMemo(() => new Map(rawMaterials.map((m) => [matchKey(m.name), m])), [rawMaterials]);
+  // matérias-primas cadastradas aqui mesmo, antes de a lista da página ser recarregada
+  const [justCreated, setJustCreated] = useState<{ id: string; name: string; unit: string }[]>([]);
+  const allRawMaterials = useMemo(() => {
+    const seen = new Set(rawMaterials.map((m) => matchKey(m.name)));
+    return [...rawMaterials, ...justCreated.filter((m) => !seen.has(matchKey(m.name)))];
+  }, [rawMaterials, justCreated]);
+  const rawByName = useMemo(() => new Map(allRawMaterials.map((m) => [matchKey(m.name), m])), [allRawMaterials]);
+
+  // formulário rápido "Cadastrar matéria-prima"
+  const [newMp, setNewMp] = useState<{ name: string; unit: string; category: "geral" | "hortifruti"; code: string } | null>(null);
+  const [newMpError, setNewMpError] = useState<string | null>(null);
+  const [newMpPending, startNewMp] = useTransition();
+  function openNewMp() {
+    // aproveita o nome já digitado numa linha que ainda não é uma matéria-prima cadastrada
+    const typed = lines.find((l) => l.kind === "raw" && l.name.trim() !== "" && !rawByName.has(matchKey(l.name)));
+    setNewMpError(null);
+    setNewMp({ name: typed?.name.trim() ?? "", unit: typed?.unit.trim() || "kg", category: "geral", code: "" });
+  }
+  function saveNewMp(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newMp) return;
+    setNewMpError(null);
+    if (rawByName.has(matchKey(newMp.name))) {
+      setNewMpError("Já existe uma matéria-prima com esse nome.");
+      return;
+    }
+    startNewMp(async () => {
+      const result = await createRawMaterial(newMp);
+      if (result.error || !result.created) {
+        setNewMpError(result.error ?? "Não foi possível cadastrar.");
+        return;
+      }
+      const created = result.created;
+      setJustCreated((prev) => [...prev, created]);
+      // coloca a matéria-prima na ficha: na linha que tinha o nome digitado, numa linha vazia ou numa nova
+      const target =
+        lines.find((l) => l.kind === "raw" && matchKey(l.name) === matchKey(created.name)) ??
+        lines.find((l) => l.kind === "raw" && l.name.trim() === "");
+      if (target) update(target.key, { name: created.name, ...(target.quantity ? {} : { unit: created.unit }) });
+      else {
+        const key = add("raw");
+        update(key, { name: created.name, unit: created.unit });
+        focusIngredient(key);
+      }
+      setNewMp(null);
+      router.refresh();
+    });
+  }
 
   function update(key: string, patch: Partial<DraftLine>) {
     setMessage(null);
@@ -557,7 +605,68 @@ export function RecipeEditor({
                   <Layers className="h-3.5 w-3.5" />
                   Adicionar subproduto (SP)
                 </button>
+                <button
+                  type="button"
+                  onClick={() => (newMp ? setNewMp(null) : openNewMp())}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                >
+                  <Package className="h-3.5 w-3.5" />
+                  Cadastrar matéria-prima
+                </button>
               </div>
+            )}
+            {canEdit && newMp && (
+              <form onSubmit={saveNewMp} className="mt-3 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+                <p className="mb-2 text-xs font-semibold text-neutral-800">Nova matéria-prima</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    value={newMp.name}
+                    onChange={(e) => setNewMp({ ...newMp, name: e.target.value })}
+                    placeholder="Nome (ex.: Requeijão bisnaga)"
+                    aria-label="Nome da matéria-prima"
+                    autoFocus
+                    className={`${field} min-w-52 flex-1`}
+                  />
+                  <input
+                    value={newMp.unit}
+                    onChange={(e) => setNewMp({ ...newMp, unit: e.target.value })}
+                    list="recipe-units"
+                    aria-label="Unidade"
+                    className={`${field} w-20`}
+                  />
+                  <select
+                    value={newMp.category}
+                    onChange={(e) => setNewMp({ ...newMp, category: e.target.value as "geral" | "hortifruti" })}
+                    aria-label="Categoria"
+                    className={`${field} w-36`}
+                  >
+                    <option value="geral">Geral</option>
+                    <option value="hortifruti">Hortifruti</option>
+                  </select>
+                  <input
+                    value={newMp.code}
+                    onChange={(e) => setNewMp({ ...newMp, code: e.target.value })}
+                    placeholder="Código (opcional)"
+                    aria-label="Código"
+                    className={`${field} w-36`}
+                  />
+                  <button
+                    type="submit"
+                    disabled={newMpPending || newMp.name.trim().length < 2 || newMp.unit.trim() === ""}
+                    className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
+                  >
+                    {newMpPending ? "Cadastrando..." : "Cadastrar"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewMp(null)}
+                    className="rounded-lg px-2 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-200"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+                {newMpError && <p className="mt-2 text-xs font-medium text-red-600">{newMpError}</p>}
+              </form>
             )}
             <p className="mt-2 text-xs text-neutral-500">
               Ao digitar, aparecem as matérias-primas já cadastradas. Um ingrediente novo é cadastrado como matéria-prima
@@ -567,7 +676,7 @@ export function RecipeEditor({
               </Link>
             </p>
             <datalist id="recipe-raw-materials">
-              {rawMaterials.map((m) => (
+              {allRawMaterials.map((m) => (
                 <option key={m.id} value={m.name} />
               ))}
             </datalist>

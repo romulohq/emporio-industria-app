@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/auth/get-session";
 import { createClient } from "@/lib/supabase/server";
 import { rawMaterialSchema, updateRawMaterialSchema } from "@/lib/validations/recipe";
 
-export type RawMaterialResult = { error?: string; ok?: boolean };
+export type RawMaterialResult = { error?: string; ok?: boolean; created?: { id: string; name: string; unit: string } };
 
 const NO_ACCESS = "Não foi possível salvar. Verifique se você tem permissão para editar matérias-primas.";
 
@@ -19,10 +19,14 @@ export async function createRawMaterial(input: unknown): Promise<RawMaterialResu
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("raw_materials").insert({ ...parsed.data, created_by: userId });
+  const { data, error } = await supabase
+    .from("raw_materials")
+    .insert({ ...parsed.data, created_by: userId })
+    .select("id, name, unit")
+    .single();
   if (error) return { error: error.code === "23505" ? "Já existe uma matéria-prima com esse nome." : NO_ACCESS };
   refresh();
-  return { ok: true };
+  return { ok: true, created: data };
 }
 
 export async function updateRawMaterial(input: unknown): Promise<RawMaterialResult> {
