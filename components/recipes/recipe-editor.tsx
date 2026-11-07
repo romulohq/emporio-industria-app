@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Calculator, ListTree, Plus, Printer, Trash2, Layers, Check, Package } from "lucide-react";
-import { saveRecipe } from "@/app/(app)/produtos/fichas/actions";
+import { createSubproduct, saveRecipe } from "@/app/(app)/produtos/fichas/actions";
 import { createRawMaterial } from "@/app/(app)/produtos/materias-primas/actions";
 import { RecipeTree } from "@/components/recipes/recipe-tree";
 import { RecipePrintSheet } from "@/components/recipes/recipe-print-sheet";
@@ -42,7 +42,7 @@ export function RecipeEditor({
   initialYieldUnit,
   initialInstructions,
   initialLines,
-  subproducts,
+  subproducts: subproductsProp,
   rawMaterials,
   subRecipes,
   canEdit,
@@ -96,6 +96,47 @@ export function RecipeEditor({
   );
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
+
+  // subprodutos cadastrados aqui mesmo, antes de a lista da página ser recarregada
+  const [spCreated, setSpCreated] = useState<{ id: string; name: string; unit: string }[]>([]);
+  const subproducts = useMemo(() => {
+    const ids = new Set(subproductsProp.map((s) => s.id));
+    return [...subproductsProp, ...spCreated.filter((s) => !ids.has(s.id))];
+  }, [subproductsProp, spCreated]);
+
+  // formulário rápido "Cadastrar subproduto"
+  const [newSp, setNewSp] = useState<{ name: string; unit: string } | null>(null);
+  const [newSpError, setNewSpError] = useState<string | null>(null);
+  const [newSpPending, startNewSp] = useTransition();
+  function saveNewSp(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newSp) return;
+    setNewSpError(null);
+    const wanted = newSp.name.trim().toLowerCase();
+    if (subproducts.some((sp) => sp.name.trim().toLowerCase() === wanted)) {
+      setNewSpError("Já existe um subproduto com esse nome.");
+      return;
+    }
+    startNewSp(async () => {
+      const result = await createSubproduct({ name: newSp.name, unit: newSp.unit });
+      if (result.error || !result.id) {
+        setNewSpError(result.error ?? "Não foi possível cadastrar.");
+        return;
+      }
+      const created = { id: result.id, name: newSp.name.trim(), unit: newSp.unit.trim() };
+      setSpCreated((prev) => [...prev, created]);
+      // já coloca o subproduto na ficha, numa linha de subproduto vazia ou numa nova
+      const target = lines.find((l) => l.kind === "subproduct" && l.subproductId === "");
+      if (target) update(target.key, { subproductId: created.id, ...(target.quantity ? {} : { unit: created.unit }) });
+      else {
+        const key = add("subproduct");
+        update(key, { subproductId: created.id, unit: created.unit });
+        focusIngredient(key);
+      }
+      setNewSp(null);
+      router.refresh();
+    });
+  }
 
   // matérias-primas cadastradas aqui mesmo, antes de a lista da página ser recarregada
   const [justCreated, setJustCreated] = useState<{ id: string; name: string; unit: string }[]>([]);
@@ -599,7 +640,7 @@ export function RecipeEditor({
                   type="button"
                   onClick={() => add("subproduct")}
                   disabled={subproducts.length === 0}
-                  title={subproducts.length === 0 ? "Cadastre um subproduto na aba Subprodutos" : undefined}
+                  title={subproducts.length === 0 ? "Ainda não há subprodutos: use Cadastrar subproduto" : undefined}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-700 hover:bg-orange-100 disabled:opacity-50"
                 >
                   <Layers className="h-3.5 w-3.5" />
@@ -613,7 +654,58 @@ export function RecipeEditor({
                   <Package className="h-3.5 w-3.5" />
                   Cadastrar matéria-prima
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewSpError(null);
+                    setNewSp(newSp ? null : { name: "SP ", unit: "kg" });
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                >
+                  <Layers className="h-3.5 w-3.5" />
+                  Cadastrar subproduto
+                </button>
               </div>
+            )}
+            {canEdit && newSp && (
+              <form onSubmit={saveNewSp} className="mt-3 rounded-lg border border-orange-200 bg-orange-50/40 p-3">
+                <p className="mb-2 text-xs font-semibold text-neutral-800">Novo subproduto</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    value={newSp.name}
+                    onChange={(e) => setNewSp({ ...newSp, name: e.target.value })}
+                    placeholder="Nome (ex.: SP Cebola caramelizada)"
+                    aria-label="Nome do subproduto"
+                    autoFocus
+                    className={`${field} min-w-52 flex-1`}
+                  />
+                  <input
+                    value={newSp.unit}
+                    onChange={(e) => setNewSp({ ...newSp, unit: e.target.value })}
+                    list="recipe-units"
+                    aria-label="Unidade"
+                    className={`${field} w-20`}
+                  />
+                  <button
+                    type="submit"
+                    disabled={newSpPending || newSp.name.trim().length < 2 || newSp.unit.trim() === ""}
+                    className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
+                  >
+                    {newSpPending ? "Cadastrando..." : "Cadastrar"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewSp(null)}
+                    className="rounded-lg px-2 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-200"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-neutral-500">
+                  O subproduto entra nesta ficha. Depois, em Produtos &gt; Subprodutos, você cadastra a ficha dele.
+                </p>
+                {newSpError && <p className="mt-1 text-xs font-medium text-red-600">{newSpError}</p>}
+              </form>
             )}
             {canEdit && newMp && (
               <form onSubmit={saveNewMp} className="mt-3 rounded-lg border border-neutral-200 bg-neutral-50 p-3">

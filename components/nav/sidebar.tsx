@@ -1,5 +1,3 @@
-import Image from "next/image";
-import Link from "next/link";
 import {
   LayoutDashboard,
   Package,
@@ -17,7 +15,9 @@ import {
   LogOut,
 } from "lucide-react";
 import { signOut } from "@/app/(auth)/login/actions";
+import { NavLink, labelClass } from "@/components/nav/nav-link";
 import { SidebarGroup } from "@/components/nav/sidebar-group";
+import { SidebarShell } from "@/components/nav/sidebar-shell";
 import type { Profile, Sector } from "@/lib/types/database.types";
 
 type NavItem = {
@@ -55,79 +55,69 @@ const ADMIN_ITEMS = [
   { href: "/cadastro-produtos-erp", label: "Produtos ERP", icon: Tags },
 ];
 
+const ICON = "h-[18px] w-[18px]";
+
 export function Sidebar({
   profile,
   sectors,
   lateReportsCount = 0,
+  initialPinned = false,
 }: {
   profile: Profile;
   sectors: Sector[];
   lateReportsCount?: number;
+  /** menu fixo aberto (escolha da pessoa, guardada num cookie) */
+  initialPinned?: boolean;
 }) {
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-neutral-200/70 bg-white print:hidden">
-      <Link href="/dashboard" className="flex justify-center px-5 pb-3 pt-5" aria-label="Time Fábrica">
-        <Image
-          src="/time-fabrica-logo-laranja-suave.png"
-          alt="Time Fábrica"
-          width={1200}
-          height={282}
-          priority
-          className="h-8 w-auto"
-        />
-      </Link>
-
-      <nav className="flex-1 space-y-1 px-3">
+    <SidebarShell initialPinned={initialPinned}>
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-2">
         {NAV_ITEMS.map((item) =>
           item.children ? (
             <SidebarGroup
               key={item.label}
               label={item.label}
-              icon={<item.icon className="h-[18px] w-[18px]" strokeWidth={2} />}
+              icon={<item.icon className={ICON} strokeWidth={2} />}
               basePath={item.basePath ?? item.href}
               items={item.children}
             />
           ) : (
-          <div key={item.href + item.label}>
-            <Link
+            <NavLink
+              key={item.href + item.label}
               href={item.href}
-              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-neutral-600 transition-colors hover:bg-orange-50 hover:text-orange-700"
-            >
-              <item.icon className="h-[18px] w-[18px]" strokeWidth={2} />
-              {item.label}
-              {item.href === "/pedidos" && lateReportsCount > 0 && (
-                <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-600 px-1 text-xs font-bold text-white">
-                  {lateReportsCount}
-                </span>
-              )}
-            </Link>
-          </div>
+              label={item.label}
+              icon={<item.icon className={ICON} strokeWidth={2} />}
+              badge={item.href === "/pedidos" ? lateReportsCount : 0}
+            />
           )
         )}
 
         {profile.is_admin && (
           <>
-            <p className="mt-5 mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
-              Administração
-            </p>
+            {/* recolhido, o título vira uma linha fina que separa o bloco */}
+            <div className="relative mb-1 mt-5 h-5">
+              <p
+                className={`absolute inset-x-0 top-0 px-3 text-xs font-semibold uppercase tracking-wide text-neutral-400 ${labelClass}`}
+              >
+                Administração
+              </p>
+              <hr className="absolute inset-x-3 top-2.5 border-neutral-200 group-data-[open=true]/sb:hidden" />
+            </div>
             {ADMIN_ITEMS.map((item) => (
-              <Link
+              <NavLink
                 key={item.href}
                 href={item.href}
-                className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-neutral-600 transition-colors hover:bg-orange-50 hover:text-orange-700"
-              >
-                <item.icon className="h-[18px] w-[18px]" strokeWidth={2} />
-                {item.label}
-              </Link>
+                label={item.label}
+                icon={<item.icon className={ICON} strokeWidth={2} />}
+              />
             ))}
           </>
         )}
       </nav>
 
-      <div className="m-3 rounded-xl bg-neutral-50 p-3">
-        <p className="truncate text-sm font-semibold text-neutral-800">
-          {profile.full_name ?? profile.email}
-        </p>
+      {/* aberto: cartão com o usuário; recolhido: só o botão de sair */}
+      <div className="m-3 rounded-xl bg-neutral-50 p-3 group-data-[open=false]/sb:hidden">
+        <p className="truncate text-sm font-semibold text-neutral-800">{profile.full_name ?? profile.email}</p>
         <p className="mb-3 truncate text-xs text-neutral-500">
           {profile.is_admin ? "Administrador" : sectors.map((s) => s.name).join(", ") || "Sem setor"}
         </p>
@@ -141,6 +131,16 @@ export function Sidebar({
           </button>
         </form>
       </div>
-    </aside>
+      <form action={signOut} className="m-3 group-data-[open=true]/sb:hidden">
+        <button
+          type="submit"
+          title="Sair"
+          aria-label="Sair"
+          className="flex h-10 w-12 items-center justify-center rounded-xl text-neutral-500 hover:bg-orange-50 hover:text-orange-700"
+        >
+          <LogOut className={ICON} strokeWidth={2} />
+        </button>
+      </form>
+    </SidebarShell>
   );
 }
