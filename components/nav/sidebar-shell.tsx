@@ -3,14 +3,14 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Pin, PinOff } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const COOKIE = "sidebar-pinned";
 
 /**
  * Casca do menu lateral: recolhido mostra só os ícones; ao passar o mouse ele se expande por cima da
- * página; o alfinete fixa o menu aberto (a escolha fica salva num cookie, lido pelo servidor para a
+ * página; o botão de travar fixa o menu aberto (a escolha fica salva num cookie, lido pelo servidor para a
  * página já abrir do jeito certo).
  */
 export function SidebarShell({ initialPinned, children }: { initialPinned: boolean; children: React.ReactNode }) {
@@ -69,8 +69,8 @@ export function SidebarShell({ initialPinned, children }: { initialPinned: boole
               type="button"
               onClick={togglePinned}
               aria-pressed={pinned}
-              aria-label={pinned ? "Desafixar menu (recolher)" : "Fixar menu aberto"}
-              title={pinned ? "Desafixar menu: volta a recolher" : "Fixar menu aberto"}
+              aria-label={pinned ? "Recolher menu (deixar de fixar)" : "Fixar menu aberto"}
+              title={pinned ? "Recolher menu: deixa de ficar fixo" : "Fixar menu aberto"}
               className={cn(
                 "ml-auto flex h-8 w-8 items-center justify-center rounded-lg transition-opacity duration-150 hover:bg-orange-50",
                 open ? "opacity-100" : "pointer-events-none opacity-0",
@@ -78,7 +78,7 @@ export function SidebarShell({ initialPinned, children }: { initialPinned: boole
               )}
               tabIndex={open ? 0 : -1}
             >
-              {pinned ? <Pin className="h-4 w-4 fill-current" /> : <PinOff className="h-4 w-4" />}
+              {pinned ? <PanelLeftClose className="h-[18px] w-[18px]" /> : <PanelLeftOpen className="h-[18px] w-[18px]" />}
             </button>
           </div>
           {children}
