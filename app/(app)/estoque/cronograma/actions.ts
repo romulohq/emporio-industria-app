@@ -4,13 +4,17 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/get-session";
 import { createClient } from "@/lib/supabase/server";
 import { addDaysISO } from "@/lib/dates";
+import { nextCookColor } from "@/lib/schedule/cooks";
 import {
+  addCookSchema,
   addItemSchema,
   copyWeekSchema,
   itemIdSchema,
   moveItemSchema,
+  renameCookSchema,
   renameItemSchema,
   saveNotesSchema,
+  setCellCooksSchema,
   setCellSchema,
 } from "@/lib/validations/schedule";
 
@@ -54,6 +58,78 @@ export async function setScheduleCell(input: unknown): Promise<ScheduleResult> {
         .from("schedule_cells")
         .upsert({ week_start, item_id, weekday, label, updated_by: userId }, { onConflict: "week_start,item_id,weekday" })
     : await supabase.from("schedule_cells").delete().eq("week_start", week_start).eq("item_id", item_id).eq("weekday", weekday);
+  if (error) return { error: NO_ACCESS };
+
+  revalidatePath(PATH);
+  return { ok: true };
+}
+
+/** Quem faz a atividade de um produto num dia. A célula precisa ter uma marcação (a atribuição some junto com ela). */
+export async function setScheduleCellCooks(input: unknown): Promise<ScheduleResult> {
+  await requireUser();
+  const parsed = setCellCooksSchema.safeParse(input);
+  if (!parsed.success) return { error: "Dados inválidos." };
+  const { week_start, item_id, weekday, cook_ids } = parsed.data;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("schedule_cells")
+    .update({ cook_ids: [...new Set(cook_ids)] })
+    .eq("week_start", week_start)
+    .eq("item_id", item_id)
+    .eq("weekday", weekday)
+    .select("item_id");
+  if (error) return { error: NO_ACCESS };
+  if (!data?.length) return { error: "Marque primeiro a atividade desta célula para escolher quem faz." };
+
+  revalidatePath(PATH);
+  return { ok: true };
+}
+
+export async function addScheduleCook(input: unknown): Promise<ScheduleResult> {
+  await requireUser();
+  const parsed = addCookSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  const { section, name } = parsed.data;
+
+  const supabase = await createClient();
+  const { data: team } = await supabase.from("schedule_cooks").select("name, color, position").eq("section", section).eq("active", true);
+  const list = team ?? [];
+  if (list.some((c) => c.name.trim().toLowerCase() === name.toLowerCase())) return { error: "Já existe alguém com esse nome nesta equipe." };
+
+  const { error } = await supabase.from("schedule_cooks").insert({
+    section,
+    name,
+    color: nextCookColor(list.map((c) => c.color)),
+    position: Math.max(0, ...list.map((c) => c.position)) + 1,
+  });
+  if (error) return { error: NO_ACCESS };
+
+  revalidatePath(PATH);
+  return { ok: true };
+}
+
+export async function renameScheduleCook(input: unknown): Promise<ScheduleResult> {
+  await requireUser();
+  const parsed = renameCookSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("schedule_cooks").update({ name: parsed.data.name }).eq("id", parsed.data.id);
+  if (error) return { error: NO_ACCESS };
+
+  revalidatePath(PATH);
+  return { ok: true };
+}
+
+/** Tira a pessoa da equipe (some das células e dos contadores; o cadastro fica guardado). */
+export async function removeScheduleCook(input: unknown): Promise<ScheduleResult> {
+  await requireUser();
+  const parsed = itemIdSchema.safeParse(input);
+  if (!parsed.success) return { error: "Dados inválidos." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("schedule_cooks").update({ active: false }).eq("id", parsed.data.id);
   if (error) return { error: NO_ACCESS };
 
   revalidatePath(PATH);

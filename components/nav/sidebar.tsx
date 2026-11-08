@@ -99,7 +99,7 @@ export function Sidebar({
               <p
                 className={`absolute inset-x-0 top-0 px-3 text-xs font-semibold uppercase tracking-wide text-neutral-400 ${labelClass}`}
               >
-                Administração
+                ADM
               </p>
               <hr className="absolute inset-x-3 top-2.5 border-neutral-200 group-data-[open=true]/sb:hidden" />
             </div>

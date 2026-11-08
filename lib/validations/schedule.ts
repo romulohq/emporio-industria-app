@@ -9,6 +9,23 @@ export const setCellSchema = z.object({
   label: z.string().trim().max(60),
 });
 
+export const setCellCooksSchema = z.object({
+  week_start: weekStart,
+  item_id: z.string().uuid(),
+  weekday: z.number().int().min(1).max(5),
+  cook_ids: z.array(z.string().uuid()).max(12),
+});
+
+export const addCookSchema = z.object({
+  section: z.enum(["salgados", "folheados", "paes", "cozinha"]),
+  name: z.string().trim().min(1, "Informe o nome").max(40),
+});
+
+export const renameCookSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().trim().min(1, "Informe o nome").max(40),
+});
+
 export const saveNotesSchema = z.object({
   week_start: weekStart,
   notes: z.string().max(2000),

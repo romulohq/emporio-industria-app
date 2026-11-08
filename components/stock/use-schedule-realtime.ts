@@ -7,7 +7,7 @@ import type { ScheduleCell, ScheduleWeek } from "@/lib/types/database.types";
 
 type Handlers = {
   /** label null = a marcação foi limpa */
-  onCell: (itemId: string, weekday: number, label: string | null) => void;
+  onCell: (itemId: string, weekday: number, label: string | null, cookIds: string[]) => void;
   onWeek: (week: { notes: string }) => void;
   onItemsChanged: () => void;
 };
@@ -44,10 +44,10 @@ export function useScheduleRealtime(weekStart: string, me: Me, handlers: Handler
       .on<ScheduleCell>("postgres_changes", { event: "*", schema: "public", table: "schedule_cells", filter: `week_start=eq.${weekStart}` }, (payload) => {
         if (payload.eventType === "DELETE") {
           const old = payload.old as Partial<ScheduleCell>;
-          if (old.item_id != null && old.weekday != null) handlersRef.current.onCell(old.item_id, old.weekday, null);
+          if (old.item_id != null && old.weekday != null) handlersRef.current.onCell(old.item_id, old.weekday, null, []);
         } else {
           const row = payload.new;
-          handlersRef.current.onCell(row.item_id, row.weekday, row.label);
+          handlersRef.current.onCell(row.item_id, row.weekday, row.label, row.cook_ids ?? []);
         }
       })
       .on<ScheduleWeek>("postgres_changes", { event: "*", schema: "public", table: "schedule_weeks", filter: `week_start=eq.${weekStart}` }, (payload) => {
@@ -55,6 +55,7 @@ export function useScheduleRealtime(weekStart: string, me: Me, handlers: Handler
         handlersRef.current.onWeek({ notes: payload.new.notes ?? "" });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "schedule_items" }, () => handlersRef.current.onItemsChanged())
+      .on("postgres_changes", { event: "*", schema: "public", table: "schedule_cooks" }, () => handlersRef.current.onItemsChanged())
       .on("presence", { event: "sync" }, () => {
         const all = Object.values(channel.presenceState<Collaborator>()).flat();
         setOthers(otherTabs(all, tabKey));

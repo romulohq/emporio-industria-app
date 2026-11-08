@@ -6,7 +6,8 @@ import { EstoqueTabs } from "@/components/stock/estoque-tabs";
 import { ScheduleGrid, type GridItem } from "@/components/stock/schedule-grid";
 import { addDaysISO, fortalezaDateISO, formatBrDate } from "@/lib/dates";
 import { defaultWeekStart, weekDatesOf, weekStartOf } from "@/lib/schedule/week";
-import type { ScheduleCell, ScheduleItem, ScheduleWeek } from "@/lib/types/database.types";
+import type { GridCook } from "@/lib/schedule/cooks";
+import type { ScheduleCell, ScheduleCook, ScheduleItem, ScheduleWeek } from "@/lib/types/database.types";
 
 export default async function CronogramaPage({ searchParams }: { searchParams: Promise<{ semana?: string }> }) {
   const { userId, email, profile, sectors: mySectors } = await requireUser();
@@ -16,8 +17,9 @@ export default async function CronogramaPage({ searchParams }: { searchParams: P
   const dates = weekDatesOf(weekStart);
 
   const supabase = await createClient();
-  const [{ data: items }, { data: cells }, { data: weekRow }, { data: previousWeek }, { data: unit }] = await Promise.all([
+  const [{ data: items }, { data: cooks }, { data: cells }, { data: weekRow }, { data: previousWeek }, { data: unit }] = await Promise.all([
     supabase.from("schedule_items").select("*").eq("active", true).order("position"),
+    supabase.from("schedule_cooks").select("*").eq("active", true).order("position"),
     supabase.from("schedule_cells").select("*").eq("week_start", weekStart),
     supabase.from("schedule_weeks").select("*").eq("week_start", weekStart).maybeSingle(),
     supabase
@@ -34,7 +36,17 @@ export default async function CronogramaPage({ searchParams }: { searchParams: P
   const week = weekRow as ScheduleWeek | null;
 
   const cellMap: Record<string, string> = {};
-  for (const c of (cells ?? []) as ScheduleCell[]) cellMap[`${c.item_id}:${c.weekday}`] = c.label;
+  const cellCooks: Record<string, string[]> = {};
+  for (const c of (cells ?? []) as ScheduleCell[]) {
+    cellMap[`${c.item_id}:${c.weekday}`] = c.label;
+    if (c.cook_ids?.length) cellCooks[`${c.item_id}:${c.weekday}`] = c.cook_ids;
+  }
+  const gridCooks: GridCook[] = ((cooks ?? []) as ScheduleCook[]).map((c) => ({
+    id: c.id,
+    section: c.section,
+    name: c.name,
+    color: c.color,
+  }));
 
   const gridItems: GridItem[] = ((items ?? []) as ScheduleItem[]).map((i) => ({
     id: i.id,
@@ -80,6 +92,8 @@ export default async function CronogramaPage({ searchParams }: { searchParams: P
         dates={dates}
         items={gridItems}
         initialCells={cellMap}
+        initialCellCooks={cellCooks}
+        cooks={gridCooks}
         initialNotes={week?.notes ?? previousWeek?.notes ?? ""}
         canEdit={canEdit}
         me={{ id: userId, name: profile.full_name?.trim() || email?.split("@")[0] || "Alguém" }}

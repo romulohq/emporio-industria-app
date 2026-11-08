@@ -187,8 +187,20 @@ export type ScheduleCell = {
   item_id: string;
   weekday: number;
   label: string;
+  /** pessoas da equipe que fazem esta atividade (ids de schedule_cooks) */
+  cook_ids: string[];
   updated_by: string | null;
   updated_at: string;
+};
+
+export type ScheduleCook = {
+  id: string;
+  section: "salgados" | "folheados" | "paes" | "cozinha";
+  name: string;
+  color: string;
+  position: number;
+  active: boolean;
+  created_at: string;
 };
 
 export type Subproduct = {
@@ -437,6 +449,12 @@ export type Database = {
         Row: ScheduleWeek;
         Insert: Partial<ScheduleWeek>;
         Update: Partial<ScheduleWeek>;
+        Relationships: Relationship[];
+      };
+      schedule_cooks: {
+        Row: ScheduleCook;
+        Insert: Partial<ScheduleCook>;
+        Update: Partial<ScheduleCook>;
         Relationships: Relationship[];
       };
       schedule_cells: {
