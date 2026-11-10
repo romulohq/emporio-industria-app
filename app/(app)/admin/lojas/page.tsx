@@ -26,7 +26,7 @@ export default async function LojasPage() {
       </div>
 
       <div className="rounded-lg border border-orange-200 bg-orange-50/50 px-4 py-3">
-        <p className="text-sm font-semibold text-neutral-900">Link geral para todas as lojas</p>
+        <p className="text-sm font-semibold text-neutral-900">Relatar estoque Confeitaria e Pães embalados (link geral para todas as lojas)</p>
         <p className="mt-0.5 text-xs text-neutral-600">
           Quem abre este link escolhe a própria loja e cai no formulário dela. Útil para mandar um único endereço a todos.
         </p>
