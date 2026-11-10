@@ -25,6 +25,16 @@ export default async function LojasPage() {
         </Link>
       </div>
 
+      <div className="rounded-lg border border-orange-200 bg-orange-50/50 px-4 py-3">
+        <p className="text-sm font-semibold text-neutral-900">Link geral para todas as lojas</p>
+        <p className="mt-0.5 text-xs text-neutral-600">
+          Quem abre este link escolhe a própria loja e cai no formulário dela. Útil para mandar um único endereço a todos.
+        </p>
+        <div className="mt-1.5">
+          <StoreLink path="/relatar-estoque" />
+        </div>
+      </div>
+
       <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
         <table className="w-full text-left text-sm">
           <thead className="bg-neutral-50 text-xs uppercase text-neutral-500">
