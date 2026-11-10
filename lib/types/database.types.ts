@@ -249,6 +249,8 @@ export type RecipeItem = {
   ingredient_name: string | null;
   subproduct_id: string | null;
   raw_material_id: string | null;
+  /** outro produto usado como ingrediente (a árvore abre a ficha dele) */
+  product_id: string | null;
   quantity: number;
   unit: string;
 };

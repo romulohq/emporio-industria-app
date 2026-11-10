@@ -36,7 +36,7 @@ export function convertQuantity(quantity: number, from: string, to: string): num
 }
 
 function leaves(nodes: TreeNode[]): TreeNode[] {
-  return nodes.flatMap((n) => (n.subproductId ? leaves(n.children) : [n]));
+  return nodes.flatMap((n) => (n.subproductId || n.productId ? leaves(n.children) : [n]));
 }
 
 /**

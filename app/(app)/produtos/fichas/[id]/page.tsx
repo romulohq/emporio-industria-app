@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requireUser } from "@/lib/auth/get-session";
 import { createClient } from "@/lib/supabase/server";
-import { loadRawMaterials, loadRecipe, loadSubproducts } from "@/lib/recipes/load";
+import { loadProductRecipes, loadRawMaterials, loadRecipe, loadSubproducts } from "@/lib/recipes/load";
 import { RecipeEditor } from "@/components/recipes/recipe-editor";
 import type { Product, Sector } from "@/lib/types/database.types";
 
@@ -28,10 +28,11 @@ export default async function FichaProdutoPage({ params }: { params: Promise<{ i
     );
   }
 
-  const [{ recipe, lines }, { list, recipes }, rawMaterials] = await Promise.all([
+  const [{ recipe, lines }, { list, recipes }, rawMaterials, productRecipes] = await Promise.all([
     loadRecipe(supabase, { productId: id }),
     loadSubproducts(supabase),
     loadRawMaterials(supabase),
+    loadProductRecipes(supabase),
   ]);
 
   return (
@@ -57,7 +58,8 @@ export default async function FichaProdutoPage({ params }: { params: Promise<{ i
         initialLines={lines}
         subproducts={list.filter((s) => s.active).map((s) => ({ id: s.id, name: s.name, unit: s.unit }))}
         rawMaterials={rawMaterials.filter((m) => m.active).map((m) => ({ id: m.id, name: m.name, unit: m.unit }))}
-        subRecipes={recipes}
+        products={productRecipes.list.filter((p) => p.id !== id)}
+        subRecipes={{ ...recipes, ...productRecipes.recipes }}
         canEdit={profile.is_admin || mySectors.length > 0}
       />
     </div>

@@ -1,7 +1,8 @@
 import "server-only";
 import type { createClient } from "@/lib/supabase/server";
 import type { RawMaterial, Recipe, RecipeItem, Subproduct } from "@/lib/types/database.types";
-import type { RecipeLine, SubproductRecipe } from "@/lib/recipes/tree";
+import { productKey, type RecipeLine, type SubproductRecipe } from "@/lib/recipes/tree";
+import { fetchAll } from "@/lib/supabase/fetch-all";
 import { autoYield } from "@/lib/recipes/yield";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -10,6 +11,7 @@ type Supabase = Awaited<ReturnType<typeof createClient>>;
 export const toLine = (i: RecipeItem, rawNames: Map<string, string>): RecipeLine => ({
   name: i.raw_material_id ? (rawNames.get(i.raw_material_id) ?? "Matéria-prima") : i.ingredient_name,
   subproductId: i.subproduct_id,
+  productId: i.product_id ?? null,
   rawMaterialId: i.raw_material_id,
   quantity: Number(i.quantity),
   unit: i.unit,
@@ -57,6 +59,55 @@ export async function loadSubproducts(supabase: Supabase): Promise<{
     };
   }
   return { list, recipes: out };
+}
+
+export type ProductOption = { id: string; name: string; unit: string };
+
+/**
+ * Products that can be used as an ingredient (active, not converted, not packaging) and the technical sheet of
+ * every product, keyed "p:<product id>" — what the tree needs to open a product used as ingredient.
+ */
+export async function loadProductRecipes(supabase: Supabase): Promise<{
+  list: ProductOption[];
+  recipes: Record<string, SubproductRecipe>;
+}> {
+  const [{ data: prods }, { data: recipes }, rawMaterials] = await Promise.all([
+    supabase.from("products").select("id, name, unit, sectors(name)").eq("active", true).is("converted_to", null).order("name"),
+    supabase.from("recipes").select("*").not("product_id", "is", null),
+    loadRawMaterials(supabase),
+  ]);
+  const rawNames = new Map(rawMaterials.map((m) => [m.id, m.name]));
+  const products = ((prods ?? []) as unknown as { id: string; name: string; unit: string; sectors: { name: string } | null }[]).filter(
+    (p) => !/embalage/i.test(p.sectors?.name ?? "")
+  );
+  const recipeRows = (recipes ?? []) as Recipe[];
+  const items = recipeRows.length
+    ? await fetchAll<RecipeItem>((from, to) =>
+        supabase.from("recipe_items").select("*").order("recipe_id").order("position").range(from, to)
+      )
+    : [];
+  const recipeIds = new Set(recipeRows.map((r) => r.id));
+  const itemsByRecipe = new Map<string, RecipeItem[]>();
+  for (const i of items) {
+    if (!recipeIds.has(i.recipe_id)) continue;
+    itemsByRecipe.set(i.recipe_id, [...(itemsByRecipe.get(i.recipe_id) ?? []), i]);
+  }
+  const recipeByProduct = new Map(recipeRows.map((r) => [r.product_id as string, r]));
+
+  const out: Record<string, SubproductRecipe> = {};
+  for (const p of products) {
+    const r = recipeByProduct.get(p.id);
+    const lines = r ? (itemsByRecipe.get(r.id) ?? []).map((i) => toLine(i, rawNames)) : [];
+    const typed = r?.yield_quantity != null ? Number(r.yield_quantity) : null;
+    const auto = typed === null ? autoYield(lines) : null;
+    out[productKey(p.id)] = {
+      name: p.name,
+      yieldQuantity: typed ?? auto?.quantity ?? null,
+      yieldUnit: auto ? auto.unit : (r?.yield_unit ?? ""),
+      lines,
+    };
+  }
+  return { list: products.map((p) => ({ id: p.id, name: p.name, unit: p.unit })), recipes: out };
 }
 
 /** The recipe of a product or subproduct (null when none was written yet), with its lines in order. */

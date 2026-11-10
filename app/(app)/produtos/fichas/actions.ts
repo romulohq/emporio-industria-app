@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/get-session";
 import { createClient } from "@/lib/supabase/server";
-import { loadSubproducts } from "@/lib/recipes/load";
-import { wouldCreateCycle, type RecipeLine } from "@/lib/recipes/tree";
+import { loadProductRecipes, loadSubproducts } from "@/lib/recipes/load";
+import { productKey, wouldCreateCycle, type RecipeLine } from "@/lib/recipes/tree";
 import { createSubproductSchema, renameSubproductSchema, saveRecipeSchema } from "@/lib/validations/recipe";
 
 export type RecipeResult = { error?: string; ok?: boolean; id?: string };
@@ -32,23 +32,28 @@ export async function saveRecipe(input: unknown): Promise<RecipeResult> {
     if (sector && /embalage/i.test(sector)) return { error: "Embalagens não têm ficha técnica." };
   }
 
-  // a subproduct cannot contain itself, directly or through another one
-  if (subproduct_id) {
-    const { recipes } = await loadSubproducts(supabase);
+  // a recipe cannot contain itself, directly or through another subproduct or product
+  if (items.some((i) => i.subproduct_id || i.product_id)) {
+    const [{ recipes: spRecipes }, { recipes: productRecipes }] = await Promise.all([
+      loadSubproducts(supabase),
+      loadProductRecipes(supabase),
+    ]);
     const lines: RecipeLine[] = items.map((i) => ({
       name: i.name,
       subproductId: i.subproduct_id,
+      productId: i.product_id,
       rawMaterialId: i.raw_material_id,
       quantity: i.quantity,
       unit: i.unit,
     }));
-    if (wouldCreateCycle(subproduct_id, lines, recipes)) {
-      return { error: "Um subproduto não pode conter ele mesmo (nem por outro subproduto)." };
+    const ownerKey = subproduct_id ?? productKey(product_id as string);
+    if (wouldCreateCycle(ownerKey, lines, { ...spRecipes, ...productRecipes })) {
+      return { error: "Esta ficha não pode conter ela mesma (nem por outro subproduto ou produto)." };
     }
   }
 
   // ingredients typed by name that are not registered yet become raw materials (same name, case aside)
-  const typed = items.filter((i) => !i.raw_material_id && !i.subproduct_id && i.name);
+  const typed = items.filter((i) => !i.raw_material_id && !i.subproduct_id && !i.product_id && i.name);
   const resolved = new Map<string, string>();
   if (typed.length > 0) {
     const keyOf = (name: string) => name.trim().toLowerCase();
@@ -109,9 +114,10 @@ export async function saveRecipe(input: unknown): Promise<RecipeResult> {
       items.map((i, position) => ({
         recipe_id: recipeId,
         position,
-        ingredient_name: i.subproduct_id || i.raw_material_id ? null : i.name,
+        ingredient_name: i.subproduct_id || i.raw_material_id || i.product_id ? null : i.name,
         subproduct_id: i.subproduct_id,
         raw_material_id: i.raw_material_id,
+        product_id: i.product_id,
         quantity: i.quantity,
         unit: i.unit,
       }))

@@ -63,3 +63,37 @@ describe("wouldCreateCycle", () => {
     expect(wouldCreateCycle("a", [{ name: "sal", subproductId: null, quantity: 1, unit: "kg" }], { a, b })).toBe(false);
   });
 });
+
+describe("produto usado como ingrediente", () => {
+  const molho: SubproductRecipe = {
+    name: "MOLHO DE TOMATE",
+    yieldQuantity: 10,
+    yieldUnit: "kg",
+    lines: [{ name: "Tomate", subproductId: null, quantity: 8, unit: "kg" }],
+  };
+  it("abre a ficha do produto, proporcional à quantidade usada", () => {
+    const tree = buildTree(
+      [{ name: null, subproductId: null, productId: "m1", quantity: 5, unit: "kg" }],
+      { "p:m1": molho }
+    );
+    expect(tree[0].label).toBe("MOLHO DE TOMATE");
+    expect(tree[0].productId).toBe("m1");
+    expect(tree[0].children[0].quantity).toBe(4);
+  });
+  it("avisa quando o produto ainda não tem ficha", () => {
+    const tree = buildTree([{ name: null, subproductId: null, productId: "x", quantity: 1, unit: "kg" }], {});
+    expect(tree[0].noRecipe).toBe(true);
+  });
+  it("detecta ficha que contém ela mesma por outro produto", () => {
+    const a: SubproductRecipe = {
+      name: "A",
+      yieldQuantity: 1,
+      yieldUnit: "kg",
+      lines: [{ name: null, subproductId: null, productId: "b", quantity: 1, unit: "kg" }],
+    };
+    const lines = [{ name: null, subproductId: null, productId: "a", quantity: 1, unit: "kg" }];
+    // b usa a; colocar a dentro de b fecha o ciclo
+    expect(wouldCreateCycle("p:b", lines, { "p:a": a })).toBe(true);
+    expect(wouldCreateCycle("p:c", lines, { "p:a": a })).toBe(false);
+  });
+});

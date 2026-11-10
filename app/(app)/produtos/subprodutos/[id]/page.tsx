@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requireUser } from "@/lib/auth/get-session";
 import { createClient } from "@/lib/supabase/server";
-import { loadRawMaterials, loadRecipe, loadSubproducts } from "@/lib/recipes/load";
+import { loadProductRecipes, loadRawMaterials, loadRecipe, loadSubproducts } from "@/lib/recipes/load";
 import { RecipeEditor } from "@/components/recipes/recipe-editor";
 import { SubproductHeader } from "@/components/recipes/subproduct-forms";
 
@@ -16,7 +16,7 @@ export default async function SubprodutoPage({ params }: { params: Promise<{ id:
   const sp = list.find((s) => s.id === id);
   if (!sp) notFound();
   const { recipe, lines } = await loadRecipe(supabase, { subproductId: id });
-  const rawMaterials = await loadRawMaterials(supabase);
+  const [rawMaterials, productRecipes] = await Promise.all([loadRawMaterials(supabase), loadProductRecipes(supabase)]);
   const canEdit = profile.is_admin || sectors.length > 0;
 
   return (
@@ -43,7 +43,8 @@ export default async function SubprodutoPage({ params }: { params: Promise<{ id:
         initialLines={lines}
         subproducts={list.filter((s) => s.active && s.id !== id).map((s) => ({ id: s.id, name: s.name, unit: s.unit }))}
         rawMaterials={rawMaterials.filter((m) => m.active).map((m) => ({ id: m.id, name: m.name, unit: m.unit }))}
-        subRecipes={recipes}
+        products={productRecipes.list}
+        subRecipes={{ ...recipes, ...productRecipes.recipes }}
         canEdit={canEdit}
       />
     </div>

@@ -688,7 +688,7 @@ export function ScheduleGrid({
                       <div className="text-[10px] font-normal text-neutral-500 print:text-[8px] print:text-neutral-600">{formatBrDate(dates[i])}</div>
                       {secCooks.length > 0 && (
                         <div
-                          className="mt-0.5 flex flex-wrap items-center justify-center gap-x-1.5 text-[10px] font-semibold text-neutral-700 print:hidden"
+                          className="mt-0.5 flex flex-wrap items-center justify-center gap-x-2 gap-y-0 text-[9px] font-semibold leading-tight text-neutral-700 print:hidden"
                           aria-label="Tarefas de cada pessoa neste dia"
                         >
                           {secCooks.map((c) => {
@@ -697,10 +697,10 @@ export function ScheduleGrid({
                               <span
                                 key={c.id}
                                 title={`${c.name}: ${n} ${n === 1 ? "tarefa" : "tarefas"}`}
-                                className={`inline-flex items-center gap-0.5 ${n === 0 ? "opacity-50" : ""}`}
+                                className={`inline-flex items-center gap-0.5 whitespace-nowrap ${n === 0 ? "opacity-50" : ""}`}
                               >
                                 <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: c.color }} />
-                                {cookInitial(c.name)}:{n}
+                                {c.name}: {n}
                               </span>
                             );
                           })}

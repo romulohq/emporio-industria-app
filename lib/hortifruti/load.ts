@@ -4,7 +4,7 @@ import { addDaysISO, fortalezaDateISO, weekdayOfISODate } from "@/lib/dates";
 import { WEEKDAY_ORDER } from "@/lib/format/labels";
 import { weekStartOf } from "@/lib/schedule/week";
 import { fetchAll } from "@/lib/supabase/fetch-all";
-import { loadRawMaterials, loadSubproducts, toLine } from "@/lib/recipes/load";
+import { loadProductRecipes, loadRawMaterials, loadSubproducts, toLine } from "@/lib/recipes/load";
 import { batchesOfLabel, computeDemand, type DemandProduction, type DemandRecipe } from "@/lib/hortifruti/demand";
 import type {
   HortifrutiCount,
@@ -84,7 +84,7 @@ export async function loadHortifrutiDemand(supabase: Supabase): Promise<DemandVi
   const workdays = days.filter((d) => weekNumberOf(d) <= 5);
   const weekStarts = [...new Set(workdays.map(weekStartOf))];
 
-  const [materials, subproducts, { data: items }, { data: weeks }, { data: cells }, { data: products }, recipes] =
+  const [materials, subproducts, { data: items }, { data: weeks }, { data: cells }, { data: products }, recipes, productRecipes] =
     await Promise.all([
       loadHortifrutiMaterials(supabase),
       loadSubproducts(supabase),
@@ -93,6 +93,7 @@ export async function loadHortifrutiDemand(supabase: Supabase): Promise<DemandVi
       weekStarts.length ? supabase.from("schedule_cells").select("*").in("week_start", weekStarts) : Promise.resolve({ data: [] }),
       supabase.from("products").select("id, name, active").eq("active", true).is("converted_to", null),
       loadAllRecipes(supabase),
+      loadProductRecipes(supabase),
     ]);
 
   const itemList = (items ?? []) as ScheduleItem[];
@@ -152,7 +153,7 @@ export async function loadHortifrutiDemand(supabase: Supabase): Promise<DemandVi
   const result = computeDemand({
     productions,
     recipeByItem,
-    subproducts: subproducts.recipes,
+    subproducts: { ...subproducts.recipes, ...productRecipes.recipes },
     hortifruti: new Map(materials.map((m) => [m.id, m.unit])),
   });
 

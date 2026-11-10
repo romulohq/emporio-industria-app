@@ -149,7 +149,7 @@ export function RecipePrintSheet({
 }
 
 function Row({ node, depth, cell }: { node: TreeNode; depth: number; cell: string }) {
-  const isSp = node.subproductId !== null;
+  const isSp = node.subproductId !== null || !!node.productId;
   return (
     <>
       <tr className="break-inside-avoid border-b border-neutral-200">
@@ -158,7 +158,9 @@ function Row({ node, depth, cell }: { node: TreeNode; depth: number; cell: strin
             {node.label}
           </span>
           {isSp && (
-            <span className="ml-2 text-[8px] font-bold uppercase tracking-[0.16em] text-neutral-400">SP</span>
+            <span className="ml-2 text-[8px] font-bold uppercase tracking-[0.16em] text-neutral-400">
+              {node.productId ? "Produto" : "SP"}
+            </span>
           )}
           {node.noRecipe && <span className="ml-2 text-[9px] text-neutral-400">(sem ficha cadastrada)</span>}
         </td>

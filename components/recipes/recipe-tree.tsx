@@ -48,7 +48,7 @@ function NodeRow({ node }: { node: TreeNode }) {
     </span>
   );
 
-  if (!node.subproductId) {
+  if (!node.subproductId && !node.productId) {
     return (
       <div className="flex items-center gap-2 rounded-md px-2 py-1 text-sm text-neutral-800">
         <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-neutral-300" />
@@ -62,17 +62,22 @@ function NodeRow({ node }: { node: TreeNode }) {
     <details open className="group rounded-md border border-orange-100 bg-orange-50/40">
       <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md px-2 py-1 text-sm font-medium text-neutral-900 marker:hidden">
         <Layers className="h-3.5 w-3.5 shrink-0 text-orange-600" />
-        <Link href={`/produtos/subprodutos/${node.subproductId}`} className="hover:underline">
+        <Link
+          href={node.productId ? `/produtos/fichas/${node.productId}` : `/produtos/subprodutos/${node.subproductId}`}
+          className="hover:underline"
+        >
           {node.label}
         </Link>
-        <span className="rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-orange-700">SP</span>
+        <span className="rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-orange-700">
+          {node.productId ? "Produto" : "SP"}
+        </span>
         {amount}
       </summary>
       <div className="border-t border-orange-100 px-2 py-1.5 pl-5">
         {node.cycle ? (
-          <p className="text-xs text-red-600">Este subproduto aparece dentro dele mesmo.</p>
+          <p className="text-xs text-red-600">Este item aparece dentro dele mesmo.</p>
         ) : node.noRecipe ? (
-          <p className="text-xs text-neutral-500">Este subproduto ainda não tem ficha técnica.</p>
+          <p className="text-xs text-neutral-500">{node.productId ? "Este produto" : "Este subproduto"} ainda não tem ficha técnica.</p>
         ) : (
           <>
             {node.unscaled && (

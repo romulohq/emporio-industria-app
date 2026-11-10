@@ -3,7 +3,7 @@
 import { useActionState, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Check, ChevronRight, Eraser, Pencil, Pin, Printer } from "lucide-react";
+import { Check, ChevronRight, Eraser, Pencil, Pin, Printer, Search, X } from "lucide-react";
 import { MarkerIcon } from "@/components/icons/marker-icon";
 import { CoverageBar } from "@/components/stock/coverage-bar";
 import {
@@ -182,6 +182,22 @@ export function StockCountForm({
     if (pen === null) return;
     if (pen === "eraser" || highlights[productId] === pen) setHighlight(date, productId, null);
     else setHighlight(date, productId, pen);
+  }
+
+  // pesquisa de produto: some o que não combina (sem acento e sem diferença de maiúsculas) e abre os setores com resultado
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const fold = (text: string) => text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+  const needle = fold(query.trim());
+  const visibleGroups = useMemo(() => {
+    if (!needle) return groups;
+    return groups
+      .map((g) => ({ ...g, rows: g.rows.filter((r) => fold(r.name).includes(needle)) }))
+      .filter((g) => g.rows.length > 0);
+  }, [groups, needle]);
+  function closeSearch() {
+    setSearchOpen(false);
+    setQuery("");
   }
 
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -392,6 +408,46 @@ export function StockCountForm({
                   >
                     <MarkerIcon className="h-4 w-4" />
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
+                    aria-pressed={searchOpen}
+                    aria-label="Pesquisar produto"
+                    title="Pesquisar produto"
+                    tabIndex={-1}
+                    className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors ${
+                      searchOpen ? "bg-orange-100 text-orange-700" : "text-neutral-400 hover:bg-neutral-100 hover:text-orange-600"
+                    }`}
+                  >
+                    <Search className="h-4 w-4" />
+                  </button>
+                  {searchOpen && (
+                    <span className="relative flex items-center normal-case">
+                      <input
+                        autoFocus
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") closeSearch();
+                          if (e.key === "Enter") e.preventDefault();
+                        }}
+                        placeholder="Pesquisar produto"
+                        aria-label="Pesquisar produto"
+                        className="w-52 rounded-md border border-neutral-300 bg-white py-1 pl-2 pr-7 text-base font-normal text-neutral-900 focus:border-orange-500 focus:outline-none sm:text-sm"
+                      />
+                      {query && (
+                        <button
+                          type="button"
+                          onClick={() => setQuery("")}
+                          aria-label="Limpar a pesquisa"
+                          tabIndex={-1}
+                          className="absolute right-1 rounded p-0.5 text-neutral-400 hover:text-neutral-700"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </span>
+                  )}
                 </span>
               </th>
               <th className="px-3 py-2 text-right">Mínimo</th>
@@ -403,11 +459,18 @@ export function StockCountForm({
             </tr>
           </thead>
           <tbody>
-            {groups.map((group) => (
+            {needle && visibleGroups.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-4 py-6 text-center text-sm text-neutral-500">
+                  Nenhum produto encontrado para &ldquo;{query.trim()}&rdquo;.
+                </td>
+              </tr>
+            )}
+            {visibleGroups.map((group) => (
               <GroupRows
                 key={group.sectorName}
                 group={group}
-                isCollapsed={collapsed.has(group.sectorName)}
+                isCollapsed={!needle && collapsed.has(group.sectorName)}
                 onToggle={() => toggleSection(group.sectorName)}
                 values={values}
                 changeBoxes={changeBoxes}

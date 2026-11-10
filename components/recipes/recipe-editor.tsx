@@ -8,13 +8,13 @@ import { createSubproduct, saveRecipe } from "@/app/(app)/produtos/fichas/action
 import { createRawMaterial } from "@/app/(app)/produtos/materias-primas/actions";
 import { RecipeTree } from "@/components/recipes/recipe-tree";
 import { RecipePrintSheet } from "@/components/recipes/recipe-print-sheet";
-import { buildTree, type RecipeLine, type SubproductRecipe } from "@/lib/recipes/tree";
+import { buildTree, productKey, type RecipeLine, type SubproductRecipe } from "@/lib/recipes/tree";
 import { autoYield } from "@/lib/recipes/yield";
 
 type DraftLine = {
   key: string;
-  /** raw material (name typed/picked), subproduct, or a loose text input from before raw materials existed */
-  kind: "raw" | "subproduct" | "ingredient";
+  /** raw material (name typed/picked), subproduct, another product (name picked), or a loose text input from before raw materials existed */
+  kind: "raw" | "subproduct" | "product" | "ingredient";
   name: string;
   subproductId: string;
   quantity: string;
@@ -43,6 +43,7 @@ export function RecipeEditor({
   initialInstructions,
   initialLines,
   subproducts: subproductsProp,
+  products,
   rawMaterials,
   subRecipes,
   canEdit,
@@ -59,6 +60,8 @@ export function RecipeEditor({
   initialLines: RecipeLine[];
   /** subproducts that can be used as ingredient (never the recipe's own subproduct) */
   subproducts: { id: string; name: string; unit: string }[];
+  /** products that can be used as an ingredient (never the recipe's own product) */
+  products: { id: string; name: string; unit: string }[];
   /** registered raw materials the lines can point to */
   rawMaterials: { id: string; name: string; unit: string }[];
   subRecipes: Record<string, SubproductRecipe>;
@@ -66,6 +69,10 @@ export function RecipeEditor({
 }) {
   const router = useRouter();
   const ownerSubproductId = "subproductId" in owner ? owner.subproductId : null;
+  // chave desta ficha na árvore: serve para detectar quando ela aparece dentro dela mesma
+  const ownerKey = "productId" in owner ? productKey(owner.productId) : owner.subproductId;
+  const productById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
+  const productByName = useMemo(() => new Map(products.map((p) => [matchKey(p.name), p])), [products]);
   const [view, setView] = useState<"edit" | "tree" | "scale">("edit");
   // scaling: which quantity the user is fixing ("yield", a line key, or a plain factor) and how much of it
   const [scaleBase, setScaleBase] = useState<string>(initialYieldQuantity ? "yield" : "factor");
@@ -87,8 +94,8 @@ export function RecipeEditor({
   const [lines, setLines] = useState<DraftLine[]>(() =>
     initialLines.map((l) => ({
       key: nextKey(),
-      kind: l.subproductId ? "subproduct" : l.rawMaterialId ? "raw" : "ingredient",
-      name: l.name ?? "",
+      kind: l.subproductId ? "subproduct" : l.productId ? "product" : l.rawMaterialId ? "raw" : "ingredient",
+      name: l.productId ? (productById.get(l.productId)?.name ?? l.name ?? "") : (l.name ?? ""),
       subproductId: l.subproductId ?? "",
       quantity: String(l.quantity),
       unit: l.unit,
@@ -219,9 +226,11 @@ export function RecipeEditor({
       lines
         .map((l) => {
           const raw = l.kind === "raw" ? rawByName.get(matchKey(l.name)) : undefined;
+          const product = l.kind === "product" ? productByName.get(matchKey(l.name)) : undefined;
           return {
-            name: l.kind === "subproduct" ? null : (raw?.name ?? l.name.trim()),
+            name: l.kind === "subproduct" || l.kind === "product" ? null : (raw?.name ?? l.name.trim()),
             subproductId: l.kind === "subproduct" ? l.subproductId : null,
+            productId: product?.id ?? null,
             rawMaterialId: raw?.id ?? null,
             quantity: toNumber(l.quantity),
             unit: l.unit.trim(),
@@ -232,9 +241,9 @@ export function RecipeEditor({
             Number.isFinite(l.quantity) &&
             l.quantity > 0 &&
             l.unit !== "" &&
-            (l.rawMaterialId ? true : l.name ? l.name.length > 0 : !!l.subproductId)
+            (l.rawMaterialId ? true : l.name ? l.name.length > 0 : !!l.subproductId || !!l.productId)
         ),
-    [lines, rawByName]
+    [lines, rawByName, productByName]
   );
 
   // rendimento digitado; sem ele vale a soma dos ingredientes (nada é gravado: a ficha segue "sem rendimento")
@@ -245,8 +254,8 @@ export function RecipeEditor({
   const effectiveYieldUnit = usingAuto ? "kg" : yieldUnit;
   const yieldText = yieldNumber && yieldNumber > 0 ? `${fmt(yieldNumber)} ${effectiveYieldUnit}`.trim() : null;
   const tree = useMemo(
-    () => buildTree(validLines, subRecipes, ownerSubproductId ? [ownerSubproductId] : []),
-    [validLines, subRecipes, ownerSubproductId]
+    () => buildTree(validLines, subRecipes, [ownerKey]),
+    [validLines, subRecipes, ownerKey]
   );
 
   // --- scaling: every quantity is multiplied by (wanted / base) ---
@@ -256,11 +265,15 @@ export function RecipeEditor({
       lines.flatMap((l) => {
         const quantity = toNumber(l.quantity);
         const label =
-          l.kind === "subproduct" ? (subNames[l.subproductId] ?? "") : (rawByName.get(matchKey(l.name))?.name ?? l.name.trim());
+          l.kind === "subproduct"
+            ? (subNames[l.subproductId] ?? "")
+            : l.kind === "product"
+              ? (productByName.get(matchKey(l.name))?.name ?? "")
+              : (rawByName.get(matchKey(l.name))?.name ?? l.name.trim());
         if (!label || !Number.isFinite(quantity) || quantity <= 0 || l.unit.trim() === "") return [];
         return [{ key: l.key, label, quantity, unit: l.unit.trim() }];
       }),
-    [lines, subNames, rawByName]
+    [lines, subNames, rawByName, productByName]
   );
   const wanted = toNumber(scaleValue);
   const baseLine = baseOptions.find((o) => o.key === scaleBase);
@@ -283,13 +296,19 @@ export function RecipeEditor({
 
   const scaledRows = useMemo(() => {
     const scaledLines = validLines.map((l) => ({ ...l, quantity: l.quantity * appliedFactor }));
-    const nodes = buildTree(scaledLines, subRecipes, ownerSubproductId ? [ownerSubproductId] : []);
+    const nodes = buildTree(scaledLines, subRecipes, [ownerKey]);
     return nodes.map((node, i) => ({ node, baseQuantity: validLines[i].quantity }));
-  }, [validLines, appliedFactor, subRecipes, ownerSubproductId]);
+  }, [validLines, appliedFactor, subRecipes, ownerKey]);
   const scaledYieldText =
     yieldNumber && yieldNumber > 0 ? `${fmt(yieldNumber * appliedFactor)} ${effectiveYieldUnit}`.trim() : null;
 
-  function save() {
+  // escala ativa (fator diferente de 1): ao salvar, a ficha cadastrada passa a ter as quantidades multiplicadas
+  const scaleActive = factor !== null && Math.abs(factor - 1) > 1e-9;
+  const [confirmScale, setConfirmScale] = useState(false);
+  const round6 = (n: number) => Math.round(n * 1e6) / 1e6;
+
+  /** Botão "Salvar ficha": confere a ficha e, com escala ativa, pede a confirmação antes de gravar. */
+  function trySave() {
     if (validLines.length !== lines.length) {
       setMessage({
         ok: false,
@@ -301,25 +320,50 @@ export function RecipeEditor({
       setMessage({ ok: false, text: "O rendimento precisa ser um número maior que zero." });
       return;
     }
+    if (scaleActive) {
+      setConfirmScale(true);
+      return;
+    }
+    save(1);
+  }
+
+  /** Grava a ficha com as quantidades multiplicadas por `multiplier` (1 = como está na tela). */
+  function save(multiplier: number) {
     setMessage(null);
+    setConfirmScale(false);
+    const scaledYield = manualYield === null ? null : round6(manualYield * multiplier);
     startTransition(async () => {
       const result = await saveRecipe({
         product_id: "productId" in owner ? owner.productId : null,
         subproduct_id: ownerSubproductId,
-        yield_quantity: manualYield,
+        yield_quantity: scaledYield,
         yield_unit: yieldUnit.trim(),
         instructions,
         items: validLines.map((l) => ({
           name: l.rawMaterialId ? null : l.name,
           subproduct_id: l.subproductId,
+          product_id: l.productId,
           raw_material_id: l.rawMaterialId,
-          quantity: l.quantity,
+          quantity: round6(l.quantity * multiplier),
           unit: l.unit,
         })),
       });
-      setMessage(result.error ? { ok: false, text: result.error } : { ok: true, text: "Ficha técnica salva." });
+      if (result.error) {
+        setMessage({ ok: false, text: result.error });
+        return;
+      }
+      if (multiplier !== 1) {
+        // a ficha da tela passa a ser a multiplicada, e a escala volta ao normal (1×)
+        setLines((prev) => prev.map((l, i) => ({ ...l, quantity: String(round6(validLines[i].quantity * multiplier)) })));
+        if (scaledYield !== null) setYieldQuantity(String(scaledYield));
+        setScaleValue("");
+      }
+      setMessage({
+        ok: true,
+        text: multiplier !== 1 ? `Ficha técnica salva com as quantidades multiplicadas por ${fmt(multiplier)}×.` : "Ficha técnica salva.",
+      });
       // new raw materials created by this save show up in the suggestions right away
-      if (!result.error) router.refresh();
+      router.refresh();
     });
   }
 
@@ -364,7 +408,7 @@ export function RecipeEditor({
           {canEdit && (
             <button
               type="button"
-              onClick={save}
+              onClick={trySave}
               disabled={pending}
               className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
             >
@@ -437,6 +481,11 @@ export function RecipeEditor({
               Fator de escala: <b>{fmt(appliedFactor)}×</b>
               {factor === null && <span className="ml-2 text-xs text-orange-700/80">(informe a quantidade para recalcular)</span>}
             </span>
+            {scaleActive && canEdit && (
+              <span className="basis-full text-xs text-orange-800">
+                Se você clicar em <b>Salvar ficha</b> com esta escala, as quantidades multiplicadas passam a ser as da ficha cadastrada.
+              </span>
+            )}
             {scaledYieldText && (
               <span className="text-orange-900">
                 Rendimento: <b>{scaledYieldText}</b>
@@ -461,9 +510,9 @@ export function RecipeEditor({
                     <tr key={`${node.label}-${index}`} className="border-t border-neutral-100">
                       <td className="px-3 py-1.5 text-neutral-900">
                         {node.label}
-                        {node.subproductId && (
+                        {(node.subproductId || node.productId) && (
                           <span className="ml-1.5 rounded bg-orange-100 px-1 py-px text-[9px] font-bold uppercase text-orange-700">
-                            SP
+                            {node.productId ? "Produto" : "SP"}
                           </span>
                         )}
                       </td>
@@ -556,6 +605,26 @@ export function RecipeEditor({
                       disabled={!canEdit}
                       className={field}
                     />
+                  ) : line.kind === "product" ? (
+                    <div className="flex items-center gap-1.5">
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded bg-orange-100 px-1.5 py-1 text-[10px] font-bold uppercase text-orange-700">
+                        <Package className="h-3 w-3" />
+                        Produto
+                      </span>
+                      <input
+                        value={line.name}
+                        onChange={(e) => {
+                          const match = productByName.get(matchKey(e.target.value));
+                          update(line.key, { name: e.target.value, ...(match && !line.quantity ? { unit: match.unit } : {}) });
+                        }}
+                        list="recipe-products"
+                        data-line-name={line.key}
+                        placeholder="Produto (digite para buscar, ex.: Molho de tomate)"
+                        aria-label="Produto usado como ingrediente"
+                        disabled={!canEdit}
+                        className={`${field} ${line.name.trim() !== "" && !productByName.has(matchKey(line.name)) ? "border-red-400" : ""}`}
+                      />
+                    </div>
                   ) : line.kind === "ingredient" ? (
                     <input
                       value={line.name}
@@ -635,6 +704,15 @@ export function RecipeEditor({
                 >
                   <Plus className="h-3.5 w-3.5" />
                   Adicionar ingrediente
+                </button>
+                <button
+                  type="button"
+                  onClick={() => add("product")}
+                  disabled={products.length === 0}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-700 hover:bg-orange-100 disabled:opacity-50"
+                >
+                  <Package className="h-3.5 w-3.5" />
+                  Adicionar produto
                 </button>
                 <button
                   type="button"
@@ -772,6 +850,11 @@ export function RecipeEditor({
                 <option key={m.id} value={m.name} />
               ))}
             </datalist>
+            <datalist id="recipe-products">
+              {products.map((p) => (
+                <option key={p.id} value={p.name} />
+              ))}
+            </datalist>
             <datalist id="recipe-units">
               {UNITS.map((u) => (
                 <option key={u} value={u} />
@@ -798,6 +881,64 @@ export function RecipeEditor({
         </>
       )}
     </div>
+
+    {confirmScale && scaleActive && factor !== null && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/40 p-4 print:hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="scale-confirm-title"
+        onKeyDown={(e) => e.key === "Escape" && setConfirmScale(false)}
+      >
+        <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-xl bg-white p-5 shadow-2xl">
+          <h2 id="scale-confirm-title" className="text-base font-bold text-neutral-900">
+            Salvar a ficha com a escala de {fmt(factor)}×?
+          </h2>
+          <p className="mt-1.5 text-sm text-neutral-600">
+            As quantidades multiplicadas vão <b>ficar no cadastro atual</b> desta ficha técnica, no lugar das que estão lá hoje.
+            Quem abrir a ficha depois verá os novos valores.
+          </p>
+          <ul className="mt-3 min-h-0 flex-1 divide-y divide-neutral-100 overflow-y-auto rounded-lg border border-neutral-200 text-sm">
+            {manualYield !== null && (
+              <li className="flex items-center justify-between gap-3 bg-neutral-50 px-3 py-1.5 font-semibold text-neutral-900">
+                <span>Rendimento</span>
+                <span className="tabular-nums">
+                  {fmt(manualYield)} → {fmt(round6(manualYield * factor))} {yieldUnit}
+                </span>
+              </li>
+            )}
+            {validLines.map((l, i) => (
+              <li key={i} className="flex items-center justify-between gap-3 px-3 py-1.5">
+                <span className="min-w-0 truncate text-neutral-800">
+                  {l.name ??
+                    (l.productId ? products.find((p) => p.id === l.productId)?.name : subproducts.find((sp) => sp.id === l.subproductId)?.name)}
+                </span>
+                <span className="shrink-0 tabular-nums text-neutral-700">
+                  {fmt(l.quantity)} → <b className="text-neutral-900">{fmt(round6(l.quantity * factor))}</b> {l.unit}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-4 flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              autoFocus
+              onClick={() => setConfirmScale(false)}
+              className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => save(factor)}
+              className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700"
+            >
+              Sim, salvar multiplicado
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     <RecipePrintSheet
       title={ownerName}

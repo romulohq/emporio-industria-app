@@ -5,12 +5,15 @@ const line = z
     name: z.string().trim().max(80).nullable(),
     subproduct_id: z.string().uuid().nullable(),
     raw_material_id: z.string().uuid().nullable().default(null),
+    product_id: z.string().uuid().nullable().default(null),
     quantity: z.number().positive("A quantidade precisa ser maior que zero.").max(1_000_000),
     unit: z.string().trim().min(1, "Informe a unidade de cada ingrediente.").max(12),
   })
   .refine(
-    (l) => [l.raw_material_id !== null, l.subproduct_id !== null, !!l.name && l.name.length > 0].filter(Boolean).length === 1,
-    { message: "Cada linha precisa de uma matéria-prima ou de um subproduto." }
+    (l) =>
+      [l.raw_material_id !== null, l.subproduct_id !== null, l.product_id !== null, !!l.name && l.name.length > 0].filter(Boolean)
+        .length === 1,
+    { message: "Cada linha precisa de uma matéria-prima, de um subproduto ou de um produto." }
   );
 
 export const saveRecipeSchema = z
