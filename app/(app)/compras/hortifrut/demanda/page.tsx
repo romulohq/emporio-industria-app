@@ -4,6 +4,7 @@ import { formatBrDate, weekdayOfISODate } from "@/lib/dates";
 import { WEEKDAY_LABELS } from "@/lib/format/labels";
 import { loadHortifrutiDemand } from "@/lib/hortifruti/load";
 import { ScheduleItemLink } from "@/components/compras/schedule-item-link";
+import { PrintIconButton } from "@/components/compras/print-icon-button";
 
 const fmt = (n: number) => new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 }).format(n);
 const shortDay = (iso: string) => `${WEEKDAY_LABELS[weekdayOfISODate(iso)].slice(0, 3)} ${formatBrDate(iso).slice(0, 5)}`;
@@ -20,7 +21,8 @@ export default async function DemandaHortifrutPage() {
 
   return (
     <div className="space-y-5">
-      <p className="text-sm text-neutral-500">
+      <style>{`@media print { @page { size: A4 ${columns.length > 5 ? "landscape" : "portrait"}; margin: 12mm; } * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }`}</style>
+      <p className="text-sm text-neutral-500 print:hidden">
         Quanto de hortifrut as produções dos <b>próximos 10 dias</b> ({formatBrDate(view.days[0])} a{" "}
         {formatBrDate(view.days[view.days.length - 1])}) vão precisar. A conta usa o cronograma de produção (cada
         &ldquo;Produzir&rdquo; vale uma receita, &ldquo;2x Produzir&rdquo; vale duas) e a quantidade de cada matéria-prima
@@ -28,14 +30,14 @@ export default async function DemandaHortifrutPage() {
       </p>
 
       {view.emptyWeeks.length > 0 && (
-        <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900 print:hidden">
           O cronograma ainda está vazio na semana de {view.emptyWeeks.map(formatBrDate).join(", ")}. Preencha o
           cronograma para a demanda considerar essas produções.
         </p>
       )}
 
       {view.unlinked.length > 0 && (
-        <section className="space-y-2 rounded-lg border border-orange-200 bg-orange-50/50 p-4">
+        <section className="space-y-2 rounded-lg border border-orange-200 bg-orange-50/50 p-4 print:hidden">
           <h2 className="text-sm font-semibold text-neutral-900">Produções sem ficha técnica vinculada</h2>
           <p className="text-xs text-neutral-600">
             Estes itens do cronograma não foram reconhecidos pelo nome. Escolha a ficha técnica de cada um para a
@@ -56,7 +58,7 @@ export default async function DemandaHortifrutPage() {
       )}
 
       {view.unitMismatches.length > 0 && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">
+        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800 print:hidden">
           Unidade diferente da cadastrada em:{" "}
           {view.unitMismatches.map((m) => `${m.material} (${m.name}: ${m.from} em vez de ${m.to})`).join("; ")}. Essas linhas
           não entraram na conta.
@@ -64,7 +66,18 @@ export default async function DemandaHortifrutPage() {
       )}
 
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-neutral-900">Hortifrut necessário</h2>
+        <div className="hidden print:block">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">Compras · Hortifrut</p>
+          <h1 className="text-xl font-extrabold text-neutral-900">Hortifrut necessário</h1>
+          <p className="text-xs text-neutral-500">
+            Produções de {formatBrDate(view.days[0])} a {formatBrDate(view.days[view.days.length - 1])} (10 dias a partir de
+            amanhã), conforme o cronograma de produção e as fichas técnicas.
+          </p>
+        </div>
+        <div className="flex items-center justify-between gap-3 print:hidden">
+          <h2 className="text-sm font-semibold text-neutral-900">Hortifrut necessário</h2>
+          {needed.length > 0 && <PrintIconButton label="Imprimir hortifrut necessário" />}
+        </div>
         {needed.length === 0 ? (
           <p className="text-sm text-neutral-500">
             Nenhuma produção dos próximos 10 dias usa hortifrut, ou as fichas técnicas ainda não têm essas matérias-primas.
@@ -103,7 +116,7 @@ export default async function DemandaHortifrutPage() {
         )}
       </section>
 
-      <section className="space-y-2">
+      <section className="space-y-2 print:hidden">
         <h2 className="text-sm font-semibold text-neutral-900">Produções consideradas</h2>
         {view.productions.length === 0 ? (
           <p className="text-sm text-neutral-500">Nenhuma produção marcada no cronograma para os próximos 10 dias.</p>
