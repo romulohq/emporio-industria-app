@@ -13,19 +13,22 @@ export default async function EscolherLojaPage({ searchParams }: { searchParams:
   const { data: stores } = await admin.from("stores").select("id, name").eq("active", true).order("name");
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4 py-8">
-      <form action={openStoreForm} className="w-full max-w-sm space-y-4 rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
+    <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-3 py-6 sm:px-4 sm:py-8">
+      <form
+        action={openStoreForm}
+        className="w-full max-w-lg space-y-7 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm sm:p-8"
+      >
         <div>
-          <h1 className="text-xl font-bold text-neutral-900">Relatar estoque Confeitaria e Pães embalados</h1>
-          <p className="mt-1 text-sm text-neutral-500">Escolha a sua loja para abrir o formulário de pedido.</p>
+          <h1 className="text-[26px] font-bold leading-tight text-neutral-900">Relatar estoque Confeitaria e Pães embalados</h1>
+          <p className="mt-2 text-base text-neutral-500">Escolha a sua loja para abrir o formulário de pedido.</p>
         </div>
         <label className="block">
-          <span className="text-sm font-medium text-neutral-700">Loja</span>
+          <span className="text-lg font-semibold text-neutral-800">Loja</span>
           <select
             name="store"
             required
             defaultValue=""
-            className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2.5 text-base text-neutral-900 focus:border-orange-600 focus:outline-none focus:ring-1 focus:ring-orange-600"
+            className="mt-2 h-16 w-full rounded-xl border border-neutral-300 bg-white px-4 text-xl text-neutral-900 focus:border-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-600/40"
           >
             <option value="" disabled>
               Selecione a loja
@@ -37,10 +40,10 @@ export default async function EscolherLojaPage({ searchParams }: { searchParams:
             ))}
           </select>
         </label>
-        {erro && <p className="text-sm text-red-600">Não foi possível abrir essa loja. Escolha de novo.</p>}
+        {erro && <p className="text-base text-red-600">Não foi possível abrir essa loja. Escolha de novo.</p>}
         <button
           type="submit"
-          className="w-full rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-700"
+          className="h-16 w-full rounded-xl bg-orange-600 px-4 text-xl font-semibold text-white hover:bg-orange-700"
         >
           Abrir formulário
         </button>
