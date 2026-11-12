@@ -9,6 +9,7 @@ export const HIGHLIGHT_COLORS = [
   { value: "#f9a8d4", label: "Rosa" },
   { value: "#93c5fd", label: "Azul" },
   { value: "#fdba74", label: "Laranja" },
+  { value: "#c4b5fd", label: "Roxo" },
 ] as const;
 
 // v2: marks belong to one count date ("2026-10-15:<product id>" -> colour). The first version
