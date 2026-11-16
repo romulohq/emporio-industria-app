@@ -105,7 +105,7 @@ export function CollaboratorSheet({
                   <tr key={`h-${rowIndex}`} className="break-inside-avoid">
                     <td
                       colSpan={3}
-                      className="border border-neutral-300 bg-neutral-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-neutral-600"
+                      className="border border-neutral-400 bg-neutral-300 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-neutral-900 [-webkit-print-color-adjust:exact] [print-color-adjust:exact]"
                     >
                       {row.label}
                     </td>

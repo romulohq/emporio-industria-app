@@ -34,7 +34,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Painel", icon: LayoutDashboard },
   { href: "/produtos", label: "Produtos", icon: Package },
   { href: "/estoque", label: "Estoque", icon: Boxes },
-  { href: "/pedidos", label: "Pedidos", icon: ClipboardList },
+  { href: "/pedidos", label: "Pedidos Rui", icon: ClipboardList },
   {
     href: "/compras/hortifrut",
     label: "Compras",
