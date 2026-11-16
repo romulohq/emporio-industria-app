@@ -56,6 +56,7 @@ export default async function ImprimirPorColaboradorPage({
     const item: CollaboratorSheetItem = {
       id: order.id,
       name: product.name,
+      code: product.sku,
       unit: product.unit,
       quantity: order.quantity,
     };

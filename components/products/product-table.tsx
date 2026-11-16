@@ -33,7 +33,7 @@ export function ProductTable({
             <tr key={product.id} className="border-t border-neutral-100">
               <td className="px-4 py-2">
                 <div className="font-medium text-neutral-900">{product.name}</div>
-                {product.sku && <div className="text-xs text-neutral-500">SKU {product.sku}</div>}
+                {product.sku && <div className="text-xs text-neutral-500">Cód. {product.sku}</div>}
               </td>
               <td className="px-4 py-2">{sectorsById[product.sector_id]?.name ?? "—"}</td>
               <td className="px-4 py-2">{formatQuantity(product.current_quantity, product.unit)}</td>

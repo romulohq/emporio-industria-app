@@ -120,7 +120,7 @@ export function ProductForm({
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="sku">{kind === "raw_material" ? "Código (opcional)" : "SKU (opcional)"}</Label>
+          <Label htmlFor="sku">Código do produto (opcional)</Label>
           <Input id="sku" name="sku" defaultValue={product?.sku ?? ""} />
         </div>
         <div>

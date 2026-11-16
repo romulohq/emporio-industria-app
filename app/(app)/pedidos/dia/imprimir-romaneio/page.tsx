@@ -70,6 +70,7 @@ export default async function ImprimirRomaneioPage({
     list.push({
       id: contribution.order_id,
       name: product.name,
+      code: product.sku,
       unit: product.unit,
       quantity: contribution.quantity,
       group: GROUP_LABELS[sectorName] ?? sectorName,

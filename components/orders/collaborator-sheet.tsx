@@ -5,6 +5,8 @@ export type CollaboratorSheetItem = {
   name: string;
   unit: string;
   quantity: number;
+  /** product code printed before the name; the column appears when any item has one */
+  code?: string | null;
   /** optional category; when set, items are listed under a heading per category, in the order given */
   group?: string;
 };
@@ -62,6 +64,8 @@ export function CollaboratorSheet({
   const dense = rows.length > COMFORTABLE_MAX;
   const columns = rows.length > SINGLE_COLUMN_MAX ? 2 : 1;
   const chunks = splitRows(rows, columns);
+  const showCode = items.some((i) => i.code);
+  const span = showCode ? 4 : 3;
 
   const cell = dense ? "px-2 py-0.5 text-[11px] leading-tight" : "px-3 py-2 print:py-1.5";
   const headCell = dense ? "px-2 py-1 text-[11px]" : "px-3 py-2 print:py-1.5";
@@ -84,6 +88,13 @@ export function CollaboratorSheet({
           <table key={index} className="w-full self-start border-collapse text-sm">
             <thead>
               <tr className="bg-orange-50">
+                {showCode && (
+                  <th
+                    className={`whitespace-nowrap border border-orange-100 text-left font-semibold text-neutral-900 ${headCell}`}
+                  >
+                    Cód.
+                  </th>
+                )}
                 <th className={`border border-orange-100 text-left font-semibold text-neutral-900 ${headCell}`}>
                   Produto
                 </th>
@@ -104,7 +115,7 @@ export function CollaboratorSheet({
                 row.kind === "heading" ? (
                   <tr key={`h-${rowIndex}`} className="break-inside-avoid">
                     <td
-                      colSpan={3}
+                      colSpan={span}
                       className="border border-neutral-400 bg-neutral-300 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-neutral-900 [-webkit-print-color-adjust:exact] [print-color-adjust:exact]"
                     >
                       {row.label}
@@ -112,6 +123,13 @@ export function CollaboratorSheet({
                   </tr>
                 ) : (
                   <tr key={row.item.id} className="break-inside-avoid">
+                    {showCode && (
+                      <td
+                        className={`whitespace-nowrap border border-neutral-200 tabular-nums text-neutral-600 ${cell}`}
+                      >
+                        {row.item.code ?? ""}
+                      </td>
+                    )}
                     <td className={`border border-neutral-200 font-medium text-neutral-900 ${cell}`}>
                       {row.item.name}
                     </td>
