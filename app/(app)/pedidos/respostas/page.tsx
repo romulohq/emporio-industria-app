@@ -90,9 +90,7 @@ export default async function RespostasLojasPage({
         <h1 className="text-xl font-semibold text-neutral-900">Respostas das lojas</h1>
         <p className="text-sm text-neutral-500">
           Últimos {MAX_SESSIONS} envios do formulário de estoque, um por loja/horário — clique em
-          &ldquo;Ver detalhes&rdquo; pra abrir os produtos daquele envio. Corrigir um valor
-          registra um novo envio (não apaga o histórico) e já recalcula as ordens
-          automaticamente. Para apagar registros, marque os envios e use &ldquo;Excluir
+          &ldquo;Ver detalhes&rdquo; pra abrir os produtos daquele envio. Para apagar registros, marque os envios e use &ldquo;Excluir
           selecionados&rdquo; (ou a lixeira da linha).
         </p>
       </div>

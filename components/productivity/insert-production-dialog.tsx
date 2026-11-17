@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { X } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -79,6 +79,8 @@ export function InsertProductionDialog({
   const [saving, startSaving] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState("");
+  // schedule lines the person took off the list (not produced that day); they come back with "mostrar"
+  const [removed, setRemoved] = useState<Row[]>([]);
 
   // reads the day again whenever the date changes; an answer that arrives after another change is dropped
   useEffect(() => {
@@ -93,6 +95,7 @@ export function InsertProductionDialog({
         return;
       }
       setError(null);
+      setRemoved([]);
       setData(result.data);
       setRows(rowsOf(result.data, byCode));
     });
@@ -256,16 +259,18 @@ export function InsertProductionDialog({
                             />
                             <span className="w-5 text-xs text-neutral-500">{option ? unitLabel(option.unit) : ""}</span>
                           </div>
-                          {!row.scheduleItemId && (
-                            <button
-                              type="button"
-                              aria-label={`Remover ${row.name}`}
-                              onClick={() => setRows((list) => list.filter((r) => r.key !== row.key))}
-                              className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            aria-label={`Tirar ${row.name} da lista (não foi produzido)`}
+                            title="Não foi produzido: tirar da lista"
+                            onClick={() => {
+                              setRows((list) => list.filter((r) => r.key !== row.key));
+                              if (row.scheduleItemId) setRemoved((list) => [...list, row]);
+                            }}
+                            className="rounded p-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
 
                         {row.scheduleItemId && needsProduct && (
@@ -314,6 +319,22 @@ export function InsertProductionDialog({
                     );
                   })}
                 </ul>
+              )}
+
+              {removed.length > 0 && (
+                <p className="text-xs text-neutral-500">
+                  {removed.length} {removed.length === 1 ? "item do cronograma tirado" : "itens do cronograma tirados"} da lista (não contam como produção).{" "}
+                  <button
+                    type="button"
+                    className="font-medium text-orange-700 underline"
+                    onClick={() => {
+                      setRows((list) => [...list, ...removed]);
+                      setRemoved([]);
+                    }}
+                  >
+                    Mostrar de novo
+                  </button>
+                </p>
               )}
 
               <div>

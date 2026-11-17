@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { correctStockReport } from "@/app/(app)/pedidos/respostas/actions";
 import { cn } from "@/lib/utils";
 
 export type ResponseItem = {
@@ -87,7 +85,6 @@ export function ResponseSessionRow({
                   <th className="py-1 pr-4">Qtd. informada</th>
                   <th className="py-1 pr-4">Estoque mínimo</th>
                   <th className="py-1 pr-4">A produzir</th>
-                  <th className="py-1 pr-4">Corrigir</th>
                 </tr>
               </thead>
               <tbody>
@@ -111,26 +108,6 @@ export function ResponseSessionRow({
                       ) : (
                         <span className="text-green-700">0 {item.unit}</span>
                       )}
-                    </td>
-                    <td className="py-1.5 pr-4">
-                      <form action={correctStockReport} className="flex items-center gap-2">
-                        <input type="hidden" name="store_id" value={item.storeId} />
-                        <input type="hidden" name="product_id" value={item.productId} />
-                        <Input
-                          type="number"
-                          step="0.001"
-                          min={0}
-                          name="quantity_reported"
-                          defaultValue={item.quantity}
-                          className="w-24"
-                        />
-                        <button
-                          type="submit"
-                          className="rounded-md bg-orange-600 px-2 py-1 text-xs text-white hover:bg-orange-700"
-                        >
-                          Salvar
-                        </button>
-                      </form>
                     </td>
                   </tr>
                 ))}

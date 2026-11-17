@@ -115,6 +115,7 @@ table.mt .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margi
 .chip{display:inline-block;font-size:11px;padding:1px 8px;border-radius:99px;background:var(--chip);color:var(--ink2);border:1px solid var(--line)}
 .chip.new{color:var(--good);border-color:var(--good);background:transparent}
 .chip.stop{color:var(--bad);border-color:var(--bad);background:transparent}
+.psel{font:inherit;font-size:13px;padding:7px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);max-width:100%;min-width:200px}
 #busca{font:inherit;font-size:13px;padding:7px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);min-width:200px;flex:1;max-width:280px}
 details.notes{background:var(--surface);border:1px solid rgba(229,229,229,.7);border-radius:var(--card-radius);box-shadow:var(--card-shadow);padding:14px 18px}
 details.notes summary{cursor:pointer;font-family:var(--f-display);font-weight:600}
@@ -187,7 +188,7 @@ const dif=(a,b,t)=>{const d=a-b,n=Math.abs(d);return `${d>=0?'+':'−'}${n} ${n=
 const pvIdx=()=>S.month>=1&&S.month<NM?S.month-1:null;
 const dlt=(a,b,s)=>{if(!b)return `<span class="mut">${s||''}</span>`;const p=(a-b)/b*100;if(Math.abs(p)<0.05)return `= igual ${s}`;return `<span class="${p>=0?'up':'dn'}">${p>=0?'▲':'▼'} ${nf1.format(Math.abs(p))}%</span> ${s}`};
 const pill=p=>p==null||!isFinite(p)?'':(Math.abs(p)<0.05?'<span class="mut">=</span>':`<span class="${p>=0?'up':'dn'}">${p>=0?'▲':'▼'} ${nf1.format(Math.abs(p))}%</span>`);
-const S={tab:'geral',month:3,um:'UNID',evo:'KGT',sort:'o',q:'',pd:false,nopf:false,view:'cards',grp:'Todos'};
+const S={pp:{},span:3,tab:'geral',month:3,um:'UNID',evo:'KGT',sort:'o',q:'',pd:false,nopf:false,view:'cards',grp:'Todos'};
 let charts={};const kill=id=>{if(charts[id]){charts[id].destroy();delete charts[id]}};
 const seg=(id,opts,cur)=>`<div class="seg" id="${id}" role="group">${opts.map(o=>`<button data-v="${o[0]}" aria-pressed="${String(o[0])==String(cur)}">${o[1]}</button>`).join('')}</div>`;
 const bindSeg=(id,fn)=>{const g=document.getElementById(id);if(g)g.querySelectorAll('button').forEach(b=>b.onclick=()=>fn(b.dataset.v))};
@@ -238,19 +239,77 @@ function stacked(id,meas){kill(id);const el=document.getElementById(id);if(!el)r
     scales:{x:{stacked:true,grid:{display:false},border:{color:css('--line')},ticks:{color:css('--ink2')}},y:{stacked:true,beginAtZero:true,grid:{color:css('--grid')},border:{display:false},ticks:{color:css('--ink2'),callback:v=>fv(v)}}}}),
    plugins:[{id:'tot',afterDatasetsDraw(ch){const x=ch.ctx;x.save();x.fillStyle=css('--ink');x.font='600 12px '+css('--f-body');x.textAlign='center';
      tot.forEach((t,i)=>{let y=1e9,cx=0;ch.data.datasets.forEach((d,k)=>{const b=ch.getDatasetMeta(k).data[i];if(d.data[i]>0&&b.y<y){y=b.y;cx=b.x}});if(t>0)x.fillText(fv(t),cx,y-6)});x.restore()}}]})}
-function dailyChart(id,rs,um){kill(id);const el=document.getElementById(id);if(!el)return;
-  const by={};rs.forEach(r=>{if(r.x||P[r.c].um!=um)return;by[r.d]=(by[r.d]||0)+r.q});
-  const labs=[],vals=[],cols=[],c=[css('--m1'),css('--m2'),css('--m3'),css('--m4')];
-  MK.forEach((m,mi)=>{const [y,mo]=m.split('-').map(Number);const n=new Date(y,mo,0).getDate();for(let d=1;d<=n;d++){const k=`${m}-${String(d).padStart(2,'0')}`;labs.push(k);vals.push(by[k]??null);cols.push(c[mi%4])}});
-  const avg=MK.map(m=>{const a=vals.filter((v,i)=>v!=null&&labs[i].startsWith(m));return a.length?a.reduce((p,q)=>p+q,0)/a.length:null});
-  const lines=MK.map((m,mi)=>({type:'line',label:'Média de '+MFULL[mi],data:labs.map(l=>l.startsWith(m)&&avg[mi]!=null?avg[mi]:null),borderColor:css('--ink'),borderWidth:2,borderDash:[6,4],pointRadius:0,pointHitRadius:0,spanGaps:false,order:0}));
-  charts[id]=new Chart(el,{type:'bar',data:{labels:labs,datasets:[{data:vals,backgroundColor:cols,borderRadius:2,barPercentage:.85,categoryPercentage:.95,order:1},...lines]},
-   plugins:[{id:'avg',afterDatasetsDraw(ch){const x=ch.ctx,xs=ch.scales.x,ys=ch.scales.y;x.save();x.font='600 12px '+css('--f-body');x.textAlign='left';
-     MK.forEach((m,mi)=>{if(avg[mi]==null)return;const i0=labs.indexOf(m+'-01'),px=xs.getPixelForValue(i0)+2,py=ys.getPixelForValue(avg[mi])-6;const t='média '+ML[mi]+': '+fmt(avg[mi]);
-       x.fillStyle=css('--surface');const w=x.measureText(t).width;x.globalAlpha=.85;x.fillRect(px-2,py-12,w+4,15);x.globalAlpha=1;x.fillStyle=css('--ink');x.fillText(t,px,py)});x.restore()}}],
-   options:baseOpts({plugins:{legend:{display:false},tooltip:{filter:i=>i.datasetIndex===0,callbacks:{title:i=>{const [y,m,d]=i[0].label.split('-');return `${d}/${m}/${y}`},label:i=>fmt(i.raw)+MEAS[um][1]}}},
-    scales:{x:{grid:{display:false},border:{color:css('--line')},ticks:{color:css('--ink2'),maxRotation:0,autoSkip:false,callback:function(v){const l=this.getLabelForValue(v);return l.endsWith('-01')?ML[MK.indexOf(l.slice(0,7))]:''}}},
-            y:{beginAtZero:true,grid:{color:css('--grid')},border:{display:false},ticks:{color:css('--ink2'),callback:v=>nf.format(v)}}}})})}
+/* ---------- evolução de um produto (barras por produção + linha de tendência) ---------- */
+const SPANS=[[1,'1 mês'],[3,'3 meses'],[6,'6 meses'],[12,'1 ano']];
+const isoOf=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const dayNo=iso=>Date.UTC(+iso.slice(0,4),+iso.slice(5,7)-1,+iso.slice(8,10))/864e5;
+const brDate=iso=>iso.slice(8,10)+'/'+iso.slice(5,7)+'/'+iso.slice(0,4);
+/* produto aberto em cada setor: o escolhido, senão o de mais ordens nos últimos 3 meses */
+function pickProduct(s,cods){
+  if(S.pp[s]&&cods.includes(S.pp[s]))return S.pp[s];
+  const [a]=trendWindow(3);
+  const n=c=>(RC[c]||[]).filter(r=>!r.x&&r.d>=a).length;
+  return cods.slice().sort((x,y)=>n(y)-n(x)||P[x].n.localeCompare(P[y].n,'pt'))[0];
+}
+function trendWindow(span){const e=new Date(),st=new Date(e.getFullYear(),e.getMonth()-span,e.getDate());return [isoOf(st),isoOf(e)]}
+/* produções do produto na janela (um ponto por data) e reta de tendência (mínimos quadrados) */
+function productSeries(c,span){
+  const [a,b]=trendWindow(span),by={};
+  (RC[c]||[]).forEach(r=>{if(r.x||r.d<a||r.d>b)return;by[r.d]=(by[r.d]||0)+r.q});
+  const days=Object.keys(by).sort(),vals=days.map(d=>by[d]),n=vals.length;
+  const total=vals.reduce((p,q)=>p+q,0),avg=n?total/n:0;
+  let fit=null,pct=null;
+  if(n>=3){
+    const xs=days.map(dayNo),mx=xs.reduce((p,q)=>p+q,0)/n;
+    const sxx=xs.reduce((p,x)=>p+(x-mx)*(x-mx),0);
+    if(sxx>0){
+      const slope=xs.reduce((p,x,i)=>p+(x-mx)*(vals[i]-avg),0)/sxx;
+      fit=xs.map(x=>Math.max(0,avg+slope*(x-mx)));
+      pct=avg>0?slope*(xs[n-1]-xs[0])/avg*100:null;
+    }
+  }
+  return {a,b,days,vals,n,total,avg,fit,pct};
+}
+function trendHtml(s,cods){
+  const c=pickProduct(s,cods),sr=productSeries(c,S.span),u=P[c].um,sp=SPANS.find(x=>x[0]==S.span)[1];
+  const groups=[...new Set(cods.map(x=>P[x].g))];
+  const opt=x=>'<option value="'+x+'"'+(x==c?' selected':'')+'>'+P[x].n+'</option>';
+  const sorted=cods.slice().sort((x,y)=>P[x].n.localeCompare(P[y].n,'pt'));
+  const sel=groups.length>1&&cods.length>12
+    ?groups.map(g=>'<optgroup label="'+g+'">'+sorted.filter(x=>P[x].g==g).map(opt).join('')+'</optgroup>').join('')
+    :sorted.map(opt).join('');
+  const un=MEAS[u][1].trim(),fq=v=>u=='KG'?nf1.format(v):nf.format(v);
+  let tr;
+  if(sr.pct==null)tr=tile('Tendência','<span class="mut">–</span>',sr.n<3?'poucas produções para calcular':'sem dados');
+  else if(Math.abs(sr.pct)<5)tr=tile('Tendência','<span class="mut">= Estável</span>','variação de '+(sr.pct>=0?'+':'−')+nf1.format(Math.abs(sr.pct))+'% ao longo do período');
+  else tr=tile('Tendência','<span class="'+(sr.pct>=0?'up':'dn')+'">'+(sr.pct>=0?'▲ Subindo':'▼ Caindo')+'</span>',(sr.pct>=0?'+':'−')+nf1.format(Math.abs(sr.pct))+'% ao longo do período');
+  const last=sr.n?sr.days[sr.n-1]:null;
+  const kp=sr.n?'<section class="tiles" style="margin-bottom:12px">'
+    +tile('Produções no período',sr.n,'de '+brDate(sr.a).slice(0,5)+' a '+brDate(sr.b).slice(0,5))
+    +tile('Média por produção',fq(sr.avg)+'<small style="font-size:14px;color:var(--muted)"> '+un+'</small>','total: '+fq(sr.total)+' '+un)
+    +tile('Última produção',brDate(last).slice(0,5),fq(sr.vals[sr.n-1])+' '+un)
+    +tr+'</section>':'';
+  const body=sr.n
+    ?'<div class="chartbox tall" style="height:280px"><canvas id="c-t" role="img" aria-label="Produção do produto por data"></canvas></div>'
+    :'<p class="empty">Nenhuma produção lançada de '+P[c].n+' nos últimos '+sp.toLowerCase()+'.</p>';
+  return '<section class="panel"><div class="row"><div><h2>Produção de um produto</h2><p class="hint" style="margin:0">Cada barra é uma data de produção do produto escolhido; a linha tracejada é a tendência (subindo ou caindo). O histórico começa em junho.</p></div></div>'
+    +'<div class="bar" style="margin-bottom:12px"><span class="lb">Produto</span><select id="s-prod" class="psel" aria-label="Produto">'+sel+'</select>'
+    +'<span class="lb" style="margin-left:10px">Período</span>'+seg('s-span',SPANS,S.span)+'</div>'
+    +kp+body+'</section>';
+}
+function trendDraw(s,cods,col){
+  const c=pickProduct(s,cods),sr=productSeries(c,S.span),u=P[c].um,id='c-t';
+  kill(id);const el=document.getElementById(id);if(!el)return;
+  const fq=v=>u=='KG'?nf1.format(v):nf.format(v),labs=sr.days.map(d=>d.slice(8,10)+'/'+d.slice(5,7));
+  const ds=[{type:'bar',data:sr.vals,backgroundColor:col,borderRadius:{topLeft:4,topRight:4},maxBarThickness:46,categoryPercentage:.9,barPercentage:.85,order:1}];
+  if(sr.fit)ds.push({type:'line',data:sr.fit,borderColor:css('--ink'),borderWidth:2,borderDash:[6,4],pointRadius:0,pointHitRadius:0,tension:0,order:0});
+  charts[id]=new Chart(el,{type:'bar',data:{labels:labs,datasets:ds},
+    plugins:[{id:'vl',afterDatasetsDraw(ch){if(sr.n>24)return;const x=ch.ctx;x.save();x.textAlign='center';x.fillStyle=css('--ink');x.font='600 11px '+css('--f-body');
+      ch.getDatasetMeta(0).data.forEach((b,i)=>x.fillText(fq(sr.vals[i]),b.x,b.y-5));x.restore()}}],
+    options:baseOpts({layout:{padding:{top:18}},plugins:{legend:{display:false},tooltip:{filter:i=>i.datasetIndex===0,callbacks:{title:i=>brDate(sr.days[i[0].dataIndex]),label:i=>' '+fq(i.raw)+MEAS[u][1]}}},
+      scales:{x:{grid:{display:false},border:{color:css('--line')},ticks:{color:css('--ink2'),maxRotation:0,autoSkip:true,maxTicksLimit:16}},
+              y:{beginAtZero:true,grid:{color:css('--grid')},border:{display:false},ticks:{color:css('--ink2'),maxTicksLimit:6,callback:v=>nf.format(v)}}}})});
+}
 
 /* ---------- navegação ---------- */
 function chrome(){
@@ -370,12 +429,14 @@ function viewSetor(){
   <section class="panel"><div class="row"><div><h2>Produtos</h2><p class="hint" style="margin:0">${S.view=='tab'?'Quantidade por mês, com o mês escolhido em negrito.':'Cada cartão mostra a produção do período e os meses.'}</p></div>
     ${cods.length>12?`<input id="busca" type="search" placeholder="Buscar produto ou código" aria-label="Buscar produto" value="${S.q.replace(/"/g,'&quot;')}">`:''}${seg('s-view',[['cards','Cartões'],['tab','Tabela']],S.view)}${seg('s-sort',[['o','Mais ordens'],['n','Nome']],S.sort)}</div>
     ${showG?`<div style="margin-bottom:12px">${seg('s-grp',[['Todos','Todos'],...groups.map(g=>[g,g])],S.grp)}</div>`:''}${body}</section>
-  <section class="panel"><h2>Produção por dia</h2><p class="hint">Total lançado em cada data, em ${um=='KG'?'quilos':'unidades'}. Dias sem barra não tiveram ordem lançada. A linha tracejada é a média diária de cada mês, para comparar os meses.</p><div class="chartbox tall"><canvas id="c-d" role="img" aria-label="Produção diária"></canvas></div></section>
+  ${trendHtml(s,cods)}
   ${notesHtml()}`;
   if(tot)donut('d-p',dl.map(i=>i.l),dl.map(i=>i.v),dl.map(i=>i.col),fmt(tot),um=='KG'?'quilos':'unidades',MEAS[um][1]);
   colChart('c-q',MI().map(m=>sv(rs.filter(r=>P[r.c].um==um),um,[m],rs)),col,MEAS[um][1]+(S.pd?' por dia':''),S.month);
   colChart('c-o',MI().map(m=>sv(rs,'o',[m])),col,S.pd?' ordens por dia':' ordens',S.month);
-  dailyChart('c-d',rs,um);
+  trendDraw(s,cods,col);
+  const sp1=document.getElementById('s-prod');if(sp1)sp1.onchange=()=>{S.pp[s]=sp1.value;render()};
+  bindSeg('s-span',v=>{S.span=+v;render()});
   bindSeg('s-um',v=>{S.um=v;render()});bindSeg('s-sort',v=>{S.sort=v;render()});bindSeg('s-view',v=>{S.view=v;render()});bindSeg('s-grp',v=>{S.grp=v;render()});
   const bs=document.getElementById('busca');if(bs)bs.oninput=()=>{S.q=bs.value;const p=bs.selectionStart;render();const n=document.getElementById('busca');n.focus();n.setSelectionRange(p,p)};
 }
