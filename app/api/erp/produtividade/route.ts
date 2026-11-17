@@ -4,7 +4,7 @@ import { fetchAll, loadCatalog } from "@/lib/erp/queries";
 import { isConcluded } from "@/lib/erp/analyze";
 import { manualEntriesToCount } from "@/lib/erp/manual-production";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { ErpProductionOrder, ManualProduction } from "@/lib/types/database.types";
+import type { ErpOrderFix, ErpProductionOrder, ManualProduction } from "@/lib/types/database.types";
 
 export const runtime = "nodejs";
 
@@ -24,7 +24,7 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Faça login." }, { status: 401 });
 
   const admin = createAdminClient();
-  const [rows, catalog, manualRows] = await Promise.all([
+  const [rawRows, catalog, manualRows, fixRows] = await Promise.all([
     fetchAll<Row>((from, to) =>
       admin
         .from("erp_production_orders")
@@ -37,7 +37,14 @@ export async function GET() {
     fetchAll<ManualProduction>((from, to) =>
       admin.from("manual_productions").select("*").order("seq").range(from, to)
     ),
+    fetchAll<ErpOrderFix>((from, to) =>
+      admin.from("erp_order_fixes").select("*").order("order_number").range(from, to)
+    ),
   ]);
+
+  // ordens lançadas no ERP com o item errado: valem com o produto corrigido (o painel também aplica isso às ordens fixas dele)
+  const fixes = new Map(fixRows.map((f) => [f.order_number, f.product_code]));
+  const rows = rawRows.map((r) => ({ ...r, product_code: fixes.get(r.order_number) ?? r.product_code }));
 
   const names = new Map(catalog.map((c) => [c.product_code, c]));
   const manual = manualEntriesToCount(
@@ -66,6 +73,7 @@ export async function GET() {
   return NextResponse.json(
     {
       products,
+      fixes: Object.fromEntries(fixes),
       weights: Object.fromEntries(catalog.filter((c) => c.unit_weight_kg != null).map((c) => [c.product_code, Number(c.unit_weight_kg)])),
       orders: [
         ...rows.map((r) => ({

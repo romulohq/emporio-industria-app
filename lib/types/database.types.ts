@@ -177,6 +177,15 @@ export type ScheduleItem = {
   created_at: string;
 };
 
+export type ErpOrderFix = {
+  unit: string;
+  order_number: number;
+  product_code: string;
+  original_product_code: string | null;
+  reason: string | null;
+  created_at: string;
+};
+
 export type ManualProduction = {
   id: string;
   seq: number;
@@ -453,6 +462,12 @@ export type Database = {
         Row: RecipeItem;
         Insert: Partial<RecipeItem>;
         Update: Partial<RecipeItem>;
+        Relationships: Relationship[];
+      };
+      erp_order_fixes: {
+        Row: ErpOrderFix;
+        Insert: Partial<ErpOrderFix>;
+        Update: Partial<ErpOrderFix>;
         Relationships: Relationship[];
       };
       manual_productions: {

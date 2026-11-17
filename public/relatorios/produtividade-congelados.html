@@ -307,7 +307,7 @@ function trendDraw(s,cods,col){
     plugins:[{id:'vl',afterDatasetsDraw(ch){if(sr.n>24)return;const x=ch.ctx;x.save();x.textAlign='center';x.fillStyle=css('--ink');x.font='600 11px '+css('--f-body');
       ch.getDatasetMeta(0).data.forEach((b,i)=>x.fillText(fq(sr.vals[i]),b.x,b.y-5));x.restore()}}],
     options:baseOpts({layout:{padding:{top:18}},plugins:{legend:{display:false},tooltip:{filter:i=>i.datasetIndex===0,callbacks:{title:i=>brDate(sr.days[i[0].dataIndex]),label:i=>' '+fq(i.raw)+MEAS[u][1]}}},
-      scales:{x:{grid:{display:false},border:{color:css('--line')},ticks:{color:css('--ink2'),maxRotation:0,autoSkip:true,maxTicksLimit:16}},
+      scales:{x:{grid:{display:false},border:{color:css('--line')},ticks:{color:css('--ink2'),font:{size:sr.n>20?10:12},minRotation:0,maxRotation:sr.n>12?90:0,autoSkip:sr.n>45,maxTicksLimit:45}},
               y:{beginAtZero:true,grid:{color:css('--grid')},border:{display:false},ticks:{color:css('--ink2'),maxTicksLimit:6,callback:v=>nf.format(v)}}}})});
 }
 
@@ -468,6 +468,8 @@ async function boot(){
     const res=await fetch('/api/erp/produtividade',{credentials:'same-origin',cache:'no-store'});
     if(res.ok){
       const j=await res.json();
+      /* ordens lançadas no ERP com o item errado (ex.: pão de queijo pequeno lançado como 70G): trocam de produto, inclusive as fixas do arquivo */
+      for(const [o,c] of Object.entries(j.fixes||{})){if(!P[c]&&j.products[c])P[c]=j.products[c];if(P[c])R.forEach(r=>{if(String(r.o)===o)r.c=c})}
       const known=new Set(R.map(r=>r.o));
       const fresh=j.orders.filter(r=>!known.has(r.o));
       const added=new Set();
