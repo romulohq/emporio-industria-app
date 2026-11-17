@@ -172,7 +172,21 @@ export type ScheduleItem = {
   active: boolean;
   recipe_product_id: string | null;
   recipe_subproduct_id: string | null;
+  /** produto do catálogo ERP que este item produz (usado em "Inserir produção") */
+  erp_product_code: string | null;
   created_at: string;
+};
+
+export type ManualProduction = {
+  id: string;
+  seq: number;
+  production_date: string;
+  product_code: string;
+  quantity: number;
+  schedule_item_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type ScheduleWeek = {
@@ -439,6 +453,12 @@ export type Database = {
         Row: RecipeItem;
         Insert: Partial<RecipeItem>;
         Update: Partial<RecipeItem>;
+        Relationships: Relationship[];
+      };
+      manual_productions: {
+        Row: ManualProduction;
+        Insert: Partial<ManualProduction>;
+        Update: Partial<ManualProduction>;
         Relationships: Relationship[];
       };
       schedule_items: {

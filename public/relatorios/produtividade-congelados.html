@@ -131,6 +131,9 @@ tr.off td{opacity:.6}
 .print-btn{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:13px;font-weight:600;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink2);padding:6px 12px;cursor:pointer}
 .print-btn:hover{border-color:var(--accent);color:var(--accent)}
 .print-btn:focus-visible{outline:2px solid var(--sage);outline-offset:2px}
+.ins-btn{margin-left:auto;background:var(--accent);border-color:var(--accent);color:#fff}
+.ins-btn:hover{color:#fff;filter:brightness(1.08)}
+.ins-btn+.print-btn{margin-left:0}
 #printmeta{display:none}
 /* impressão: a página igual à da tela (banner, abas, cards, gráficos), reduzida para caber na largura do A4 em pé */
 @page{size:A4 portrait;margin:8mm}
@@ -149,7 +152,7 @@ tr.off td{opacity:.6}
 </header>
 <div id="printmeta"></div>
 <nav class="tabs" id="tabs" aria-label="Setor"></nav>
-<div class="bar"><span class="lb">Período</span><div class="seg" id="s-m" role="group" aria-label="Período"></div><span class="lb" style="margin-left:10px">Valores</span><div class="seg" id="s-pd" role="group" aria-label="Valores"></div><button type="button" id="btn-print" class="print-btn" title="Imprimir o que está na tela"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Imprimir</button></div>
+<div class="bar"><span class="lb">Período</span><div class="seg" id="s-m" role="group" aria-label="Período"></div><span class="lb" style="margin-left:10px">Valores</span><div class="seg" id="s-pd" role="group" aria-label="Valores"></div><button type="button" id="btn-ins" class="print-btn ins-btn" title="Lançar a produção de um dia" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Inserir produção</button><button type="button" id="btn-print" class="print-btn" title="Imprimir o que está na tela"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Imprimir</button></div>
 <main id="view" class="wrap" style="gap:18px"></main>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -395,6 +398,8 @@ function postPrint(){
 }
 window.addEventListener('beforeprint',prePrint);
 window.addEventListener('afterprint',postPrint);
+/* "Inserir produção": a janela é da página do app (que tem a sessão e o banco); aqui só avisamos o app. Fora do app, o botão fica escondido. */
+if(window.parent!==window){const bi=document.getElementById("btn-ins");bi.hidden=false;bi.onclick=()=>window.parent.postMessage({type:"produtividade:inserir-producao"},location.origin)}
 document.getElementById('btn-print').onclick=()=>{prePrint();setTimeout(()=>window.print(),80)};
 
 async function boot(){
