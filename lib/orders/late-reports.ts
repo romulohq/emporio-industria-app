@@ -24,7 +24,7 @@ export type LateReportRow = {
  * `delivery_date > hoje` cutoff as the "Pedidos — por dia" screen — once a delivery date has
  * arrived, that order has moved to Histórico and re-litigating it no longer helps).
  */
-export async function getUndecidedLateReports(): Promise<LateReportRow[]> {
+export async function getUndecidedLateReports(scope?: { storeIds: Set<string> }): Promise<LateReportRow[]> {
   const supabase = await createClient();
   const { data: late } = await supabase
     .from("store_stock_reports")
@@ -34,7 +34,7 @@ export async function getUndecidedLateReports(): Promise<LateReportRow[]> {
     .gt("delivery_date", fortalezaDateISO())
     .order("created_at", { ascending: false });
 
-  const rows = (late ?? []) as StoreStockReport[];
+  const rows = ((late ?? []) as StoreStockReport[]).filter((r) => !scope || scope.storeIds.has(r.store_id));
   if (rows.length === 0) return [];
 
   const storeIds = [...new Set(rows.map((r) => r.store_id))];

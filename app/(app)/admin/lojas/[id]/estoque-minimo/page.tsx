@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { saveStoreProductMins } from "@/app/(app)/admin/lojas/actions";
+import { orderUnitOf } from "@/lib/orders/units";
 import type { Product, Sector, Store, StoreProductMin } from "@/lib/types/database.types";
 
 export default async function EstoqueMinimoPage({
@@ -16,11 +17,18 @@ export default async function EstoqueMinimoPage({
   const { data: store } = await supabase.from("stores").select("*").eq("id", id).single();
   if (!store) notFound();
 
+  // the products are those of the unit the store belongs to (through its route): Rui or Osório
+  const { data: route } = await supabase
+    .from("delivery_routes")
+    .select("unit_id")
+    .eq("id", (store as Store).route_id)
+    .maybeSingle();
   const { data: unit } = await supabase
     .from("production_units")
-    .select("id")
-    .eq("slug", "rui-barbosa")
-    .single();
+    .select("id, name")
+    .eq("id", (route as { unit_id: string } | null)?.unit_id ?? "")
+    .maybeSingle();
+  const unitName = unit?.name ?? "da unidade";
 
   const { data: sectors } = await supabase
     .from("sectors")
@@ -71,7 +79,10 @@ export default async function EstoqueMinimoPage({
             <div className="divide-y divide-neutral-100">
               {items.map((product) => (
                 <div key={product.id} className="flex items-center justify-between gap-4 px-4 py-2">
-                  <span className="text-sm text-neutral-800">{product.name}</span>
+                  <span className="text-sm text-neutral-800">
+                    {product.name}
+                    <span className="ml-1.5 text-xs text-neutral-400">({orderUnitOf(product)})</span>
+                  </span>
                   <Input
                     type="number"
                     step="0.001"
@@ -88,7 +99,7 @@ export default async function EstoqueMinimoPage({
 
         {grouped.size === 0 && (
           <p className="text-sm text-neutral-500">
-            Nenhum produto cadastrado ainda nos setores da Unidade Rui Barbosa.
+            Nenhum produto cadastrado ainda nos setores de {unitName}.
           </p>
         )}
 

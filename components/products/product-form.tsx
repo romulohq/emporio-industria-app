@@ -177,6 +177,30 @@ export function ProductForm({
             )}
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="order_unit">Unidade do pedido (opcional)</Label>
+              <Input id="order_unit" name="order_unit" placeholder="ex.: pct" defaultValue={product?.order_unit ?? ""} />
+            </div>
+            <div>
+              <Label htmlFor="pack_quantity">Quantidade por pacote (opcional)</Label>
+              <Input
+                id="pack_quantity"
+                name="pack_quantity"
+                type="number"
+                step="0.001"
+                min={0.001}
+                placeholder="ex.: 0,35"
+                defaultValue={product?.pack_quantity ?? ""}
+              />
+            </div>
+            <p className="col-span-2 -mt-2 text-xs text-neutral-500">
+              Usadas nos pedidos e romaneios da Fábrica Osório: os pedidos ficam em pacotes (ou na unidade do pedido), sem
+              converter. A quantidade por pacote (na unidade do produto, ex.: 0,35 kg) fica guardada para levantamentos
+              futuros do que foi enviado.
+            </p>
+          </div>
+
           <div>
             <Label htmlFor="production_group">Grupo de produção (opcional)</Label>
             <Input

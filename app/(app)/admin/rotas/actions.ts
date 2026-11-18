@@ -151,8 +151,10 @@ export async function applyRouteScheduleImpact(formData: FormData) {
     await acknowledgeLateReportsForRegeneration(sector_ids[i], delivery_dates[i], userId);
   }
 
-  revalidatePath("/pedidos");
-  revalidatePath("/pedidos/dia");
+  for (const base of ["/pedidos", "/pedidos-osorio"]) {
+    revalidatePath(base);
+    revalidatePath(`${base}/dia`);
+  }
 
   const admin = createAdminClient();
   const { data: unit } = await admin.from("production_units").select("slug").eq("id", unit_id).maybeSingle();

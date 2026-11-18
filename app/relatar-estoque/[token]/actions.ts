@@ -7,6 +7,7 @@ import { stockReportRowSchema } from "@/lib/validations/stock-report";
 import { computeCurrentCycle } from "@/lib/delivery-schedule";
 import { flagLateWithoutOrder } from "@/lib/orders/late-without-order";
 import { compareSectorNames } from "@/lib/format/sectors";
+import { orderUnitOf } from "@/lib/orders/units";
 import type { StoreDeliveryDay } from "@/lib/types/database.types";
 
 export type SentReport = {
@@ -91,7 +92,7 @@ export async function submitStockReport(
   revalidatePath(`/relatar-estoque/${token}`);
 
   const productIds = rows.map((r) => r.product_id);
-  const { data: products } = await admin.from("products").select("id, name, unit, sector_id").in("id", productIds);
+  const { data: products } = await admin.from("products").select("id, name, unit, order_unit, sector_id").in("id", productIds);
   const sectorIds = [...new Set((products ?? []).map((p) => p.sector_id as string))];
   const { data: sectors } = await admin.from("sectors").select("id, name").in("id", sectorIds);
   const sectorNameById = new Map((sectors ?? []).map((s) => [s.id as string, s.name as string]));
@@ -103,7 +104,7 @@ export async function submitStockReport(
     if (!product) continue;
     const sectorName = sectorNameById.get(product.sector_id as string) ?? "Outros";
     const list = itemsBySector.get(sectorName) ?? [];
-    list.push({ name: product.name as string, unit: product.unit as string, quantity: row.quantity_reported });
+    list.push({ name: product.name as string, unit: orderUnitOf({ unit: product.unit as string, order_unit: product.order_unit as string | null }), quantity: row.quantity_reported });
     itemsBySector.set(sectorName, list);
   }
   const groups = [...itemsBySector.entries()]

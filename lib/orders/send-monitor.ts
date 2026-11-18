@@ -34,7 +34,12 @@ export type SendMonitorEntry = {
  * only through the end of today — one full day past the deadline, matching
  * the production day that follows it. After that it drops off regardless.
  */
-export async function getTodaySendMonitor(): Promise<SendMonitorEntry[]> {
+export async function getTodaySendMonitor(scope?: { storeIds: Set<string> }): Promise<SendMonitorEntry[]> {
+  const entries = await loadSendMonitor();
+  return scope ? entries.filter((e) => scope.storeIds.has(e.storeId)) : entries;
+}
+
+async function loadSendMonitor(): Promise<SendMonitorEntry[]> {
   const supabase = await createClient();
   const now = new Date();
   const todayISO = fortalezaDateISO();

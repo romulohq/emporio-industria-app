@@ -6,7 +6,7 @@ import { RefreshCw } from "lucide-react";
 import { updateDayOrders } from "@/app/(app)/pedidos/dia/actions";
 
 /** "Atualizar ordem de produção": spins while it works, then reloads the screen and says it is done. */
-export function UpdateOrdersButton({ lateCount }: { lateCount: number }) {
+export function UpdateOrdersButton({ lateCount, unit = "rui" }: { lateCount: number; unit?: "rui" | "osorio" }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -15,7 +15,7 @@ export function UpdateOrdersButton({ lateCount }: { lateCount: number }) {
     setMessage(null);
     startTransition(async () => {
       try {
-        const result = await updateDayOrders();
+        const result = await updateDayOrders(unit);
         if (result.error) {
           setMessage({ ok: false, text: result.error });
           return;

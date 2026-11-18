@@ -7,6 +7,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { generateDayOrders } from "@/lib/orders/generate-day-orders";
 import { regenerateSectorDayOrder } from "@/lib/orders/regenerate-day-order";
 import { fortalezaDateISO } from "@/lib/dates";
+import { OSORIO_ORDERS, RUI_ORDERS } from "@/lib/orders/units";
+import { loadUnitScope } from "@/lib/orders/unit-scope";
 import { fetchAll } from "@/lib/supabase/fetch-all";
 import { getUndecidedLateReports, groupLateReports } from "@/lib/orders/late-reports";
 import { deliveryDatesProducedOn } from "@/lib/delivery-schedule";
@@ -17,8 +19,10 @@ import {
 } from "@/lib/validations/manual-contribution";
 
 function revalidateOrdersPaths() {
-  revalidatePath("/pedidos");
-  revalidatePath("/pedidos/dia");
+  for (const base of ["/pedidos", "/pedidos-osorio"]) {
+    revalidatePath(base);
+    revalidatePath(`${base}/dia`);
+  }
 }
 
 /**
@@ -29,9 +33,13 @@ function revalidateOrdersPaths() {
  * generating the ones that don't exist yet and completing the ones that were built from an
  * incomplete read of the reports.
  */
-export async function updateDayOrders(): Promise<{ ok?: boolean; error?: string; movedProducts?: number }> {
+export async function updateDayOrders(
+  unit: "rui" | "osorio" = "rui"
+): Promise<{ ok?: boolean; error?: string; movedProducts?: number }> {
   const { userId } = await requireAdmin();
   const supabase = await createClient();
+  // the late reports accepted here are only those of the stores of the screen that asked
+  const scope = await loadUnitScope(supabase, unit === "osorio" ? OSORIO_ORDERS : RUI_ORDERS);
   const admin = createAdminClient();
 
   // a product moved to another sector (e.g. from Confeitaria to Pães) must show up in the new
@@ -65,7 +73,7 @@ export async function updateDayOrders(): Promise<{ ok?: boolean; error?: string;
     return { error: "Não foi possível atualizar. Tente novamente." };
   }
 
-  for (const group of groupLateReports(await getUndecidedLateReports())) {
+  for (const group of groupLateReports(await getUndecidedLateReports(scope))) {
     const reportIds = group.items.map((item) => item.reportId);
     const storeNames = [...new Set(group.items.map((item) => item.storeName))];
 

@@ -86,8 +86,10 @@ export async function deleteStockSubmissions(input: unknown): Promise<DeleteSubm
     deleted += 1;
   }
 
-  revalidatePath("/pedidos/respostas");
-  revalidatePath("/pedidos/dia");
-  revalidatePath("/pedidos");
+  for (const base of ["/pedidos", "/pedidos-osorio"]) {
+    revalidatePath(`${base}/respostas`);
+    revalidatePath(`${base}/dia`);
+    revalidatePath(base);
+  }
   return { deleted };
 }

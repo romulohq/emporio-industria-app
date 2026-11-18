@@ -1,0 +1,138 @@
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/get-session";
+import { loadUnitScope } from "@/lib/orders/unit-scope";
+import { orderUnitOf, type OrdersContext } from "@/lib/orders/units";
+import { PrintButton } from "@/components/orders/print-button";
+import { StorePicker } from "@/components/orders/store-picker";
+import { CollaboratorSheet, type CollaboratorSheetItem } from "@/components/orders/collaborator-sheet";
+import { weekdayOfISODate, formatBrDate } from "@/lib/dates";
+import { WEEKDAY_LABELS } from "@/lib/format/labels";
+import { compareSectorNames } from "@/lib/format/sectors";
+import type { Product, ProductionOrder, ProductionOrderContribution, Sector, Store } from "@/lib/types/database.types";
+
+// how each sector is called on the store's delivery sheet
+const GROUP_LABELS: Record<string, string> = { "Pão": "Pães", Confeitaria: "Confeitaria", Embalagens: "Embalagens" };
+
+type Sheet = { key: string; title: string; items: CollaboratorSheetItem[] };
+
+export async function RomaneioView({
+  ctx,
+  searchParams,
+}: {
+  ctx: OrdersContext;
+  searchParams: Promise<{ date?: string; loja?: string }>;
+}) {
+  await requireUser();
+  const { date, loja: storeParam } = await searchParams;
+  const supabase = await createClient();
+
+  if (!date) {
+    return <p className="p-6 text-sm text-neutral-500">Informe a data (?date=AAAA-MM-DD) na URL.</p>;
+  }
+
+  // only the orders of this screen's unit, so each store's sheet lists just its own products
+  const scope = await loadUnitScope(supabase, ctx);
+  const { data: orders } = await supabase
+    .from("production_orders")
+    .select("*")
+    .eq("source", "auto_route")
+    .in("sector_id", [...scope.sectorIds])
+    .eq("delivery_date", date)
+    .in("status", ["pending", "in_progress", "completed"]);
+
+  const ordersList = (orders ?? []) as ProductionOrder[];
+  const orderIds = ordersList.map((o) => o.id);
+  const productIds = ordersList.map((o) => o.product_id);
+
+  const [{ data: contributions }, { data: products }, { data: sectors }] = await Promise.all([
+    orderIds.length
+      ? supabase.from("production_order_contributions").select("*").in("order_id", orderIds)
+      : Promise.resolve({ data: [] as ProductionOrderContribution[] }),
+    productIds.length
+      ? supabase.from("products").select("*").in("id", productIds)
+      : Promise.resolve({ data: [] as Product[] }),
+    supabase.from("sectors").select("id, name"),
+  ]);
+  const sectorNameById = Object.fromEntries(((sectors ?? []) as Pick<Sector, "id" | "name">[]).map((x) => [x.id, x.name]));
+
+  const contributionsList = (contributions ?? []) as ProductionOrderContribution[];
+  const storeIds = [...new Set(contributionsList.map((c) => c.store_id))];
+  const { data: stores } = storeIds.length
+    ? await supabase.from("stores").select("*").in("id", storeIds)
+    : { data: [] as Store[] };
+
+  const productsById = Object.fromEntries(((products ?? []) as Product[]).map((p) => [p.id, p]));
+  const ordersById = Object.fromEntries(ordersList.map((o) => [o.id, o]));
+  const storesById = Object.fromEntries(((stores ?? []) as Store[]).map((s) => [s.id, s]));
+
+  const itemsByStore = new Map<string, (CollaboratorSheetItem & { groupKey?: string })[]>();
+  for (const contribution of contributionsList) {
+    const order = ordersById[contribution.order_id];
+    const product = order ? productsById[order.product_id] : undefined;
+    if (!order || !product) continue;
+
+    const list = itemsByStore.get(contribution.store_id) ?? [];
+    const sectorName = sectorNameById[product.sector_id] ?? "Outros";
+    list.push({
+      id: contribution.order_id,
+      name: product.name,
+      code: product.sku,
+      unit: orderUnitOf(product),
+      quantity: contribution.quantity,
+      // Osório sheets are one list of products (the product lines are set up later)
+      group: ctx.bySector ? (GROUP_LABELS[sectorName] ?? sectorName) : undefined,
+      groupKey: ctx.bySector ? sectorName : undefined,
+    });
+    itemsByStore.set(contribution.store_id, list);
+  }
+
+  // grouped by category (Pães, Bolos e confeitaria, Embalagens), alphabetical inside each
+  const sortByName = (items: (CollaboratorSheetItem & { groupKey?: string })[]) =>
+    [...items].sort(
+      (a, b) => compareSectorNames(a.groupKey ?? "", b.groupKey ?? "") || a.name.localeCompare(b.name)
+    );
+
+  const sheets: Sheet[] = storeIds
+    .map((storeId) => ({
+      key: storeId,
+      title: storesById[storeId]?.name ?? "—",
+      items: sortByName(itemsByStore.get(storeId) ?? []),
+    }))
+    .sort((a, b) => a.title.localeCompare(b.title));
+
+  const visibleSheets = storeParam ? sheets.filter((s) => s.key === storeParam) : sheets;
+
+  const subtitle = `Romaneio de entrega · ${WEEKDAY_LABELS[weekdayOfISODate(date)]}, ${formatBrDate(date)}`;
+
+  const pickerOptions = sheets.map((s) => ({ value: s.key, label: s.title }));
+
+  return (
+    <div className="space-y-6 p-6 print:p-0">
+      <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
+        <Link href={`${ctx.basePath}/dia`} className="text-sm font-medium text-orange-700 hover:text-orange-800">
+          ← Voltar
+        </Link>
+        <div className="flex items-center gap-2">
+          <StorePicker date={date} options={pickerOptions} basePath={ctx.basePath} />
+          <PrintButton />
+        </div>
+      </div>
+
+      {visibleSheets.length === 0 && (
+        <p className="text-sm text-neutral-500">Nenhum pedido para esta data.</p>
+      )}
+
+      {visibleSheets.map((sheet, index) => (
+        <CollaboratorSheet
+          key={sheet.key}
+          subtitle={subtitle}
+          title={sheet.title}
+          items={sheet.items}
+          isFirst={index === 0}
+          checkColumnLabel="Recebido ✓"
+        />
+      ))}
+    </div>
+  );
+}

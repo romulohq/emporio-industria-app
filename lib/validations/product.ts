@@ -9,6 +9,18 @@ export const productSchema = z.object({
     .optional()
     .transform((v) => (v ? v : undefined)),
   unit: z.string().trim().min(1, "Informe a unidade").default("und"),
+  order_unit: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v ? v : null)),
+  pack_quantity: z
+    .union([z.string(), z.number(), z.null(), z.undefined()])
+    .transform((v) => {
+      if (v === null || v === undefined || v === "") return null;
+      const n = Number(String(v).replace(",", "."));
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }),
   min_quantity: z.coerce.number().min(0, "Não pode ser negativo"),
   units_per_box: z.coerce.number().positive("Informe um valor maior que zero").default(1),
   current_quantity: z.coerce.number().min(0, "Não pode ser negativo").optional(),

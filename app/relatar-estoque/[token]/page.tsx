@@ -5,6 +5,7 @@ import { computeCurrentCycle } from "@/lib/delivery-schedule";
 import { formatBrDate } from "@/lib/dates";
 import { WEEKDAY_LABELS } from "@/lib/format/labels";
 import { compareSectorNames } from "@/lib/format/sectors";
+import { orderUnitOf } from "@/lib/orders/units";
 import type { StoreDeliveryDay } from "@/lib/types/database.types";
 
 export default async function RelatarEstoquePage({
@@ -64,7 +65,7 @@ export default async function RelatarEstoquePage({
   for (const product of products ?? []) {
     const sectorName = sectorNameById[product.sector_id] ?? "Outros";
     const list = groupsMap.get(sectorName) ?? [];
-    list.push({ id: product.id, name: product.name, unit: product.unit });
+    list.push({ id: product.id, name: product.name, unit: orderUnitOf(product) });
     groupsMap.set(sectorName, list);
   }
   const groups = [...groupsMap.entries()]

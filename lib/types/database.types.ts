@@ -137,6 +137,10 @@ export type Product = {
   name: string;
   sku: string | null;
   unit: string;
+  /** unidade usada só nos pedidos (ex.: pct); null = a unidade do produto */
+  order_unit: string | null;
+  /** quanto cada pacote tem, na unidade do produto (ex.: 0,35 kg); para levantamentos futuros */
+  pack_quantity: number | null;
   current_quantity: number;
   min_quantity: number;
   units_per_box: number;

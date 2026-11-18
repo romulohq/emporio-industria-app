@@ -35,6 +35,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/produtos", label: "Produtos", icon: Package },
   { href: "/estoque", label: "Estoque", icon: Boxes },
   { href: "/pedidos", label: "Pedidos Rui", icon: ClipboardList },
+  { href: "/pedidos-osorio", label: "Pedidos Osório", icon: ClipboardList },
   {
     href: "/compras/hortifrut",
     label: "Compras",
@@ -61,11 +62,13 @@ export function Sidebar({
   profile,
   sectors,
   lateReportsCount = 0,
+  osorioLateReportsCount = 0,
   initialPinned = false,
 }: {
   profile: Profile;
   sectors: Sector[];
   lateReportsCount?: number;
+  osorioLateReportsCount?: number;
   /** menu fixo aberto (escolha da pessoa, guardada num cookie) */
   initialPinned?: boolean;
 }) {
@@ -87,7 +90,7 @@ export function Sidebar({
               href={item.href}
               label={item.label}
               icon={<item.icon className={ICON} strokeWidth={2} />}
-              badge={item.href === "/pedidos" ? lateReportsCount : 0}
+              badge={item.href === "/pedidos" ? lateReportsCount : item.href === "/pedidos-osorio" ? osorioLateReportsCount : 0}
             />
           )
         )}

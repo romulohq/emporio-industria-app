@@ -68,6 +68,8 @@ export function CollaboratorSheet({
   const span = showCode ? 4 : 3;
 
   const cell = dense ? "px-2 py-0.5 text-[11px] leading-tight" : "px-3 py-2 print:py-1.5";
+  // the code column only needs the width of the code itself
+  const codeCell = cell.replace(/px-\d/, "px-1.5");
   const headCell = dense ? "px-2 py-1 text-[11px]" : "px-3 py-2 print:py-1.5";
 
   return (
@@ -90,7 +92,7 @@ export function CollaboratorSheet({
               <tr className="bg-orange-50">
                 {showCode && (
                   <th
-                    className={`whitespace-nowrap border border-orange-100 text-left font-semibold text-neutral-900 ${headCell}`}
+                    className={`w-px whitespace-nowrap border border-orange-100 text-left font-semibold text-neutral-900 ${headCell.replace(/px-\d/, "px-1.5")}`}
                   >
                     Cód.
                   </th>
@@ -125,7 +127,7 @@ export function CollaboratorSheet({
                   <tr key={row.item.id} className="break-inside-avoid">
                     {showCode && (
                       <td
-                        className={`whitespace-nowrap border border-neutral-200 tabular-nums text-neutral-600 ${cell}`}
+                        className={`w-px whitespace-nowrap border border-neutral-200 tabular-nums text-neutral-600 ${codeCell}`}
                       >
                         {row.item.code ?? ""}
                       </td>
