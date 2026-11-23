@@ -58,6 +58,8 @@ export default async function RotasPage({
           <p className="text-sm text-neutral-500">Nenhuma loja cadastrada nesta unidade ainda.</p>
         ) : (
           <WeeklyScheduleEditor
+            // each unit has its own schedule: switching the tab must start the editor again, never keep the other unit's days on screen
+            key={activeUnit?.id ?? "none"}
             unitId={activeUnit?.id ?? ""}
             stores={unitStores.map((s) => ({ id: s.id, name: s.name }))}
             initialEntries={(deliveryDays ?? []) as StoreDeliveryDay[]}

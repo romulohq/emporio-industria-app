@@ -16,11 +16,15 @@ export function hasDiffChanges(diff: DayOrderDiff): boolean {
  * returned as a group needing admin review before being applied. A
  * date/sector with nothing generated yet has nothing to protect — the next
  * regular generation will simply pick up the new schedule on its own.
+ *
+ * Only the sectors of the unit whose schedule changed are checked: the delivery routes of one
+ * unit (e.g. Fábrica Osório de Paiva) have nothing to do with the orders of another (Rui Barbosa).
  */
 export async function computeRouteScheduleImpact(
-  changedWeekdays: Set<Weekday>
+  changedWeekdays: Set<Weekday>,
+  unitSectorIds: string[]
 ): Promise<{ sectorId: string; deliveryDate: string }[]> {
-  if (changedWeekdays.size === 0) return [];
+  if (changedWeekdays.size === 0 || unitSectorIds.length === 0) return [];
   const admin = createAdminClient();
   const todayISO = fortalezaDateISO();
 
@@ -32,6 +36,7 @@ export async function computeRouteScheduleImpact(
       .from("production_orders")
       .select("sector_id")
       .eq("delivery_date", deliveryDate)
+      .in("sector_id", unitSectorIds)
       .eq("source", "auto_route")
       .in("status", ["pending", "in_progress"]);
     const sectorIds = [...new Set((orders ?? []).map((o) => o.sector_id as string))];

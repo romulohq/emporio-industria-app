@@ -68,6 +68,11 @@ export async function saveUnitSchedule(formData: FormData) {
   const storeIds = (stores ?? []).map((s) => s.id);
   if (storeIds.length === 0) return;
 
+  // a unit's schedule only holds that unit's stores (Osório and Rui routes have nothing to do with each other):
+  // a schedule that mentions a store of another unit is refused whole, before anything is written or removed
+  const unitStoreIds = new Set(storeIds);
+  if (parsed.data.some((entry) => !unitStoreIds.has(entry.store_id))) return;
+
   const { data: existingRows } = await supabase
     .from("store_delivery_days")
     .select("store_id, weekday")
@@ -116,7 +121,11 @@ export async function saveUnitSchedule(formData: FormData) {
     })
   );
 
-  const impactGroups = await computeRouteScheduleImpact(changedWeekdays);
+  const { data: unitSectors } = await supabase.from("sectors").select("id").eq("unit_id", unitId);
+  const impactGroups = await computeRouteScheduleImpact(
+    changedWeekdays,
+    (unitSectors ?? []).map((s) => s.id as string)
+  );
   if (impactGroups.length > 0) {
     const params = new URLSearchParams({ unit_id: unitId });
     for (const group of impactGroups) {
