@@ -134,7 +134,7 @@ export function Sidebar({
           type="submit"
           title="Sair"
           aria-label="Sair"
-          className="flex h-10 w-12 items-center justify-center rounded-xl text-neutral-500 hover:bg-orange-50 hover:text-orange-700"
+          className="flex h-10 w-12 items-center justify-center rounded-xl text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
         >
           <LogOut className={ICON} strokeWidth={2} />
         </button>

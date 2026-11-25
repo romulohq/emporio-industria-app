@@ -35,8 +35,8 @@ export function SidebarGroup({
         onClick={() => setClicked((v) => !v)}
         aria-expanded={open}
         className={cn(
-          "flex w-full items-center gap-3 rounded-xl px-[15px] py-2.5 text-sm font-medium transition-colors hover:bg-orange-50 hover:text-orange-700",
-          inside ? "bg-orange-50 text-orange-700" : "text-neutral-600"
+          "flex w-full items-center gap-3 rounded-xl px-[15px] py-2.5 text-sm transition-colors hover:bg-neutral-100",
+          inside ? "font-bold text-[#6b5be6]" : "font-medium text-neutral-600"
         )}
       >
         <span className="flex shrink-0">{icon}</span>
@@ -55,8 +55,8 @@ export function SidebarGroup({
               key={child.href}
               href={child.href}
               className={cn(
-                "block whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors hover:bg-orange-50 hover:text-orange-700",
-                pathname.startsWith(child.href) ? "font-medium text-orange-700" : "text-neutral-500"
+                "block whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors hover:bg-neutral-100",
+                pathname.startsWith(child.href) ? "font-bold text-[#6b5be6]" : "text-neutral-500"
               )}
             >
               {child.label}

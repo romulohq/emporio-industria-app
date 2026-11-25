@@ -32,8 +32,8 @@ export function NavLink({
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center gap-3 rounded-xl px-[15px] py-2.5 text-sm font-medium transition-colors hover:bg-orange-50 hover:text-orange-700",
-        active ? "bg-orange-50 text-orange-700" : "text-neutral-600"
+        "flex items-center gap-3 rounded-xl px-[15px] py-2.5 text-sm transition-colors hover:bg-neutral-100",
+        active ? "font-bold text-[#6b5be6]" : "font-medium text-neutral-600"
       )}
     >
       <span className="relative flex shrink-0">
