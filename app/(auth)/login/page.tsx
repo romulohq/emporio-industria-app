@@ -17,14 +17,14 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
       <div className="w-full max-w-sm rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
-        <h1 className="sr-only">Time Fábrica</h1>
+        <h1 className="sr-only">Fabri</h1>
         <Image
-          src="/time-fabrica-logo.png"
-          alt="Time Fábrica"
-          width={1200}
-          height={282}
+          src="/fabri-logo.png"
+          alt="Fabri"
+          width={1060}
+          height={236}
           priority
-          className="mx-auto mb-3 h-14 w-auto"
+          className="mx-auto mb-3 h-16 w-auto"
         />
         <p className="mb-6 text-center text-sm text-neutral-500">Controle de estoque e produção</p>
 

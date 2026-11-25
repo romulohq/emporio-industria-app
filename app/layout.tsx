@@ -9,8 +9,8 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Empório do Pão — Estoque e Produção",
-  description: "Controle de estoque e ordens de produção do Empório do Pão",
+  title: "Fabri — Estoque e Produção",
+  description: "Fabri: controle de estoque, produção e pedidos do Empório do Pão",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

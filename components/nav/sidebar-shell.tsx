@@ -50,17 +50,17 @@ export function SidebarShell({ initialPinned, children }: { initialPinned: boole
           <div className="flex h-16 shrink-0 items-center px-[13px]">
             <Link
               href="/dashboard"
-              aria-label="Time Fábrica"
+              aria-label="Fabri"
               className={cn(
                 "block h-7 shrink-0 overflow-hidden transition-[width] duration-200",
-                open ? "w-[119px]" : "w-[45px]"
+                open ? "w-[126px]" : "w-[44px]"
               )}
             >
               <Image
-                src="/time-fabrica-logo-laranja-suave.png"
-                alt="Time Fábrica"
-                width={1200}
-                height={282}
+                src="/fabri-logo.png"
+                alt="Fabri"
+                width={1060}
+                height={236}
                 priority
                 className="h-7 w-auto max-w-none"
               />
