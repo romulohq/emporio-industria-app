@@ -61,14 +61,10 @@ const ICON = "h-[18px] w-[18px]";
 export function Sidebar({
   profile,
   sectors,
-  lateReportsCount = 0,
-  osorioLateReportsCount = 0,
   initialPinned = false,
 }: {
   profile: Profile;
   sectors: Sector[];
-  lateReportsCount?: number;
-  osorioLateReportsCount?: number;
   /** menu fixo aberto (escolha da pessoa, guardada num cookie) */
   initialPinned?: boolean;
 }) {
@@ -90,7 +86,6 @@ export function Sidebar({
               href={item.href}
               label={item.label}
               icon={<item.icon className={ICON} strokeWidth={2} />}
-              badge={item.href === "/pedidos" ? lateReportsCount : item.href === "/pedidos-osorio" ? osorioLateReportsCount : 0}
             />
           )
         )}
