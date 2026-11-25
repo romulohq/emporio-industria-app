@@ -24,7 +24,7 @@ export default function LoginPage() {
           width={1060}
           height={236}
           priority
-          className="mx-auto mb-3 h-16 w-auto"
+          className="mx-auto mb-3 h-10 w-auto"
         />
         <p className="mb-6 text-center text-sm text-neutral-500">Controle de estoque e produção</p>
 
@@ -36,7 +36,7 @@ export default function LoginPage() {
           <div>
             <div className="flex items-center justify-between">
               <Label htmlFor="password">Senha</Label>
-              <Link href="/esqueci-senha" className="text-xs text-orange-600 hover:underline">
+              <Link href="/esqueci-senha" className="text-xs text-[#6b5be6] hover:underline">
                 Esqueci minha senha
               </Link>
             </div>
@@ -50,7 +50,7 @@ export default function LoginPage() {
 
           {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
 
-          <Button type="submit" className="w-full" disabled={pending}>
+          <Button type="submit" variant="brand" className="w-full" disabled={pending}>
             {pending ? "Entrando..." : "Entrar"}
           </Button>
         </form>
