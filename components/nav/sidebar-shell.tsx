@@ -48,7 +48,7 @@ export function SidebarShell({ initialPinned, children }: { initialPinned: boole
         )}
       >
         <div className="flex h-full w-64 flex-col">
-          <div className="shrink-0 px-[27px] pt-6">
+          <div className="shrink-0 px-9 pt-6 transition-[padding] duration-200 group-data-[open=false]/sb:px-[19px]">
            <div className="flex h-8 items-center">
             <Link
               href="/dashboard"
