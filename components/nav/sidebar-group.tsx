@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { labelClass } from "@/components/nav/nav-link";
+import { itemClass, labelClass } from "@/components/nav/nav-link";
 
 /**
  * A menu item with a submenu that only opens when it is clicked (and stays open while the user is
@@ -34,10 +34,7 @@ export function SidebarGroup({
         type="button"
         onClick={() => setClicked((v) => !v)}
         aria-expanded={open}
-        className={cn(
-          "flex w-full items-center gap-3 rounded-xl px-[15px] py-2.5 text-sm font-medium transition-colors hover:bg-orange-50 hover:text-orange-700",
-          inside ? "bg-orange-50 text-orange-700" : "text-neutral-600"
-        )}
+        className={cn(itemClass(inside), "w-full")}
       >
         <span className="flex shrink-0">{icon}</span>
         <span className={labelClass}>{label}</span>
@@ -55,8 +52,8 @@ export function SidebarGroup({
               key={child.href}
               href={child.href}
               className={cn(
-                "block whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors hover:bg-orange-50 hover:text-orange-700",
-                pathname.startsWith(child.href) ? "font-medium text-orange-700" : "text-neutral-500"
+                "block whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors hover:bg-[#f1efff] hover:text-[#6b5be6]",
+                pathname.startsWith(child.href) ? "font-medium text-[#6b5be6]" : "text-[#1c1c24]"
               )}
             >
               {child.label}

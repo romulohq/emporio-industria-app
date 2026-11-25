@@ -56,7 +56,7 @@ const ADMIN_ITEMS = [
   { href: "/cadastro-produtos-erp", label: "Produtos ERP", icon: Tags },
 ];
 
-const ICON = "h-[18px] w-[18px]";
+const ICON = "h-5 w-5";
 
 export function Sidebar({
   profile,
@@ -80,7 +80,7 @@ export function Sidebar({
             <SidebarGroup
               key={item.label}
               label={item.label}
-              icon={<item.icon className={ICON} strokeWidth={2} />}
+              icon={<item.icon className={ICON} strokeWidth={1.6} />}
               basePath={item.basePath ?? item.href}
               items={item.children}
             />
@@ -89,7 +89,7 @@ export function Sidebar({
               key={item.href + item.label}
               href={item.href}
               label={item.label}
-              icon={<item.icon className={ICON} strokeWidth={2} />}
+              icon={<item.icon className={ICON} strokeWidth={1.6} />}
               badge={item.href === "/pedidos" ? lateReportsCount : item.href === "/pedidos-osorio" ? osorioLateReportsCount : 0}
             />
           )
@@ -100,7 +100,7 @@ export function Sidebar({
             {/* recolhido, o título vira uma linha fina que separa o bloco */}
             <div className="relative mb-1 mt-5 h-5">
               <p
-                className={`absolute inset-x-0 top-0 px-3 text-xs font-semibold uppercase tracking-wide text-neutral-400 ${labelClass}`}
+                className={`absolute inset-x-0 top-0 px-3 text-xs font-semibold uppercase tracking-wide text-[#6b7390] ${labelClass}`}
               >
                 ADM
               </p>
@@ -111,7 +111,7 @@ export function Sidebar({
                 key={item.href}
                 href={item.href}
                 label={item.label}
-                icon={<item.icon className={ICON} strokeWidth={2} />}
+                icon={<item.icon className={ICON} strokeWidth={1.6} />}
               />
             ))}
           </>
@@ -139,9 +139,9 @@ export function Sidebar({
           type="submit"
           title="Sair"
           aria-label="Sair"
-          className="flex h-10 w-12 items-center justify-center rounded-xl text-neutral-500 hover:bg-orange-50 hover:text-orange-700"
+          className="flex h-10 w-12 items-center justify-center rounded-xl text-[#1c1c24] hover:bg-[#f1efff] hover:text-[#6b5be6]"
         >
-          <LogOut className={ICON} strokeWidth={2} />
+          <LogOut className={ICON} strokeWidth={1.6} />
         </button>
       </form>
     </SidebarShell>

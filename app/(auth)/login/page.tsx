@@ -26,7 +26,7 @@ export default function LoginPage() {
           priority
           className="mx-auto mb-3 h-10 w-auto"
         />
-        <p className="mb-6 text-center text-sm text-neutral-500">Controle de estoque e produção</p>
+        <p className="mb-6 text-center text-xs text-neutral-500">Controle de estoque e produção</p>
 
         <form action={formAction} className="space-y-4">
           <div>
