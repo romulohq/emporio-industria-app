@@ -70,7 +70,7 @@ export function Sidebar({
 }) {
   return (
     <SidebarShell initialPinned={initialPinned}>
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-2 pt-5">
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-2 pt-6">
         {NAV_ITEMS.map((item) =>
           item.children ? (
             <SidebarGroup

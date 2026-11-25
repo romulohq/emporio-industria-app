@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { labelClass } from "@/components/nav/nav-link";
 
 const COOKIE = "sidebar-pinned";
 
@@ -47,13 +48,14 @@ export function SidebarShell({ initialPinned, children }: { initialPinned: boole
         )}
       >
         <div className="flex h-full w-64 flex-col">
-          <div className="flex h-16 shrink-0 items-center px-[13px] pt-5">
+          <div className="shrink-0 px-[13px] pt-6">
+           <div className="flex h-8 items-center">
             <Link
               href="/dashboard"
               aria-label="Fabri"
               className={cn(
-                "block h-7 shrink-0 overflow-hidden transition-[width] duration-200",
-                open ? "w-[126px]" : "w-[44px]"
+                "block h-6 shrink-0 overflow-hidden transition-[width] duration-200",
+                open ? "w-[108px]" : "w-[38px]"
               )}
             >
               <Image
@@ -62,7 +64,7 @@ export function SidebarShell({ initialPinned, children }: { initialPinned: boole
                 width={1060}
                 height={236}
                 priority
-                className="h-7 w-auto max-w-none"
+                className="h-6 w-auto max-w-none"
               />
             </Link>
             <button
@@ -79,6 +81,9 @@ export function SidebarShell({ initialPinned, children }: { initialPinned: boole
             >
               {pinned ? <PanelLeftClose className="h-[18px] w-[18px]" /> : <PanelLeftOpen className="h-[18px] w-[18px]" />}
             </button>
+           </div>
+            {/* some com o menu recolhido (só os ícones), como os nomes dos itens */}
+            <p className={cn("mt-1 h-4 text-[11px] leading-4 text-neutral-500", labelClass)}>Sistema de gestão industrial</p>
           </div>
           {children}
         </div>
