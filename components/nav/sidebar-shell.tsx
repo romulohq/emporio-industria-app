@@ -74,7 +74,7 @@ export function SidebarShell({ initialPinned, children }: { initialPinned: boole
               aria-label={pinned ? "Recolher menu (deixar de fixar)" : "Fixar menu aberto"}
               title={pinned ? "Recolher menu: deixa de ficar fixo" : "Fixar menu aberto"}
               className={cn(
-                "ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-[#8c8c8c] transition-opacity duration-150 hover:bg-neutral-100 hover:text-neutral-600",
+                "ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-[#8c8c8c] outline-none focus:outline-none focus-visible:outline-none transition-opacity duration-150 hover:bg-neutral-100 hover:text-neutral-600",
                 open ? "opacity-100" : "pointer-events-none opacity-0"
               )}
               tabIndex={open ? 0 : -1}
