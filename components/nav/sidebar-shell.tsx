@@ -47,7 +47,7 @@ export function SidebarShell({ initialPinned, children }: { initialPinned: boole
         )}
       >
         <div className="flex h-full w-64 flex-col">
-          <div className="flex h-16 shrink-0 items-center px-[13px]">
+          <div className="flex h-16 shrink-0 items-center px-[13px] pt-5">
             <Link
               href="/dashboard"
               aria-label="Fabri"
